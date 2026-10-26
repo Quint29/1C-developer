@@ -1,0 +1,49 @@
+# Ignore everything
+*
+
+# But not these files...
+!/.gitignore
+
+# Never publish local secrets
+.env
+.env.*
+
+!*.go
+!go.sum
+!go.mod
+
+!README.md
+!README.AI.md
+!LICENSE
+!CONTRIBUTING.md
+!SECURITY.md
+!CODE_OF_CONDUCT.md
+!NOTICE
+
+!Makefile
+!Dockerfile
+!docker-compose.yml
+# Opt-in override that provisions the 1C platform context (.hbk) via a read-only
+# mount instead of baking the heavy platform into the image. Shipped as a reusable
+# template; combine with -f on top of any base compose file.
+!docker-compose.platform.yml
+!env.example
+
+!lsp_config.example.json
+!.golangci.yml
+!.goreleaser.yaml
+
+!docs/*
+!docs/**/*
+!docker/*
+!docker/**/*
+
+# ...even if they are in subdirectories
+!*/
+
+# Test data (large, not needed in repo)
+test-workspace/
+
+# Build artifacts
+lsp_parsed/
+dist/

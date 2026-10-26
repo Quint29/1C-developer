@@ -1,0 +1,657 @@
+import base64
+import json
+import os
+import re
+import struct
+import tempfile
+import time
+import unittest
+from pathlib import Path
+from urllib.error import URLError
+from unittest.mock import patch
+
+import sys
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+from runtime.v8std_mcp_index import (  # noqa: E402
+    IndexLoadError,
+    MIN_RESULT_SCORE,
+    SEMANTIC_MODE_MAX_RESULTS,
+    SEMANTIC_RRF_WEIGHT,
+    SEMANTIC_SCORE_WEIGHT,
+    VECTOR_DIM,
+    VECTOR_MODEL,
+    V8StdIndex,
+    embed_query,
+    normalize_lookup_key,
+    normalize_page_schema,
+)
+
+
+class V8StdMcpIndexTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        vectors_path = REPO_ROOT / "docs" / "ai" / "search-vectors.jsonl"
+        cls.index = V8StdIndex(
+            pages_path=REPO_ROOT / "docs" / "ai" / "pages.jsonl",
+            vectors_path=vectors_path if vectors_path.exists() else None,
+        )
+        cls.index.load()
+
+    def test_normalizes_common_ids_aliases_and_urls(self):
+        self.assertEqual(normalize_lookup_key("#std437"), "std437")
+        self.assertEqual(normalize_lookup_key("стандарт 437"), "std437")
+        self.assertEqual(normalize_lookup_key("АПК:1245"), "acc:1245")
+        self.assertEqual(normalize_lookup_key("acc361"), "acc:361")
+        self.assertEqual(
+            normalize_lookup_key("https://v8std.ru/diagnostics/bslls/AssignAliasFieldsInQuery/"),
+            "bslls:assignaliasfieldsinquery",
+        )
+
+    def test_hybrid_search_finds_standards_and_diagnostics(self):
+        std_results = self.index.search("std437", limit=3)["results"]
+        acc_results = self.index.search("acc:1245", limit=3)["results"]
+        bslls_results = self.index.search("AssignAliasFieldsInQuery", limit=3)["results"]
+
+        self.assertEqual(std_results[0]["id"], "std437")
+        self.assertEqual(acc_results[0]["id"], "acc:1245")
+        self.assertEqual(bslls_results[0]["id"], "bslls:AssignAliasFieldsInQuery")
+        self.assertIn("match_reasons", std_results[0])
+        self.assertIn("score_details", std_results[0])
+
+    def test_search_cursor_reads_past_fifty_without_reordering_or_duplication(self):
+        # Hybrid drops results below MIN_RESULT_SCORE; bm25 keeps the long
+        # tail and exercises more than one full page.
+        first = self.index.search("модуль", limit=50, mode="bm25")
+        self.assertGreater(first["total"], 50)
+        self.assertEqual(len(first["results"]), 50)
+        self.assertIsNotNone(first["next_cursor"])
+        second = self.index.search("модуль", limit=50, mode="bm25", cursor=first["next_cursor"])
+        self.assertEqual(second, self.index.search("модуль", limit=50, mode="bm25", cursor=first["next_cursor"]))
+        self.assertFalse({item["id"] for item in first["results"]} &
+                         {item["id"] for item in second["results"]})
+        with self.assertRaisesRegex(ValueError, "stale search cursor"):
+            self.index.search("форма", limit=50, mode="bm25", cursor=first["next_cursor"])
+        with self.assertRaisesRegex(ValueError, "stale search cursor"):
+            self.index.search("модуль", limit=20, mode="bm25", cursor=first["next_cursor"])
+        with self.assertRaisesRegex(ValueError, "stale search cursor"):
+            self.index.search("модуль", limit=50, mode="hybrid", cursor=first["next_cursor"])
+        with self.assertRaisesRegex(ValueError, "stale search cursor"):
+            self.index.search("модуль", limit=50, mode="bm25", types=["standard"], cursor=first["next_cursor"])
+
+        seen = first["results"] + second["results"]
+        page = second
+        while page["next_cursor"] is not None:
+            page = self.index.search("модуль", limit=50, mode="bm25", cursor=page["next_cursor"])
+            seen.extend(page["results"])
+        self.assertEqual(len(seen), first["total"])
+        self.assertEqual(len({item["id"] for item in seen}), first["total"])
+        self.assertLessEqual(len(page["results"]), 50)
+
+    def test_search_cursor_rejects_a_changed_index(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pages_path = Path(temp_dir) / "pages.jsonl"
+            pages_path.write_text(
+                '\n'.join(json.dumps({"id": f"std{number}", "type": "standard", "title": "Page module"})
+                          for number in (1, 2, 3)) + '\n',
+                encoding="utf-8",
+            )
+            index = V8StdIndex(
+                pages_path=pages_path,
+                vectors_path=REPO_ROOT / "docs" / "ai" / "search-vectors.jsonl",
+            )
+            index.load()
+            # A three-page corpus scores below the hybrid MIN_RESULT_SCORE.
+            first = index.search("module", limit=1, mode="bm25")
+            self.assertIsNotNone(first["next_cursor"])
+            pages_path.write_text(
+                '\n'.join(json.dumps({"id": f"std{number}", "type": "standard", "title": "Page module changed"})
+                          for number in (1, 2, 3)) + '\n',
+                encoding="utf-8",
+            )
+            index.load()
+            with self.assertRaisesRegex(ValueError, "stale search cursor"):
+                index.search("module", limit=1, mode="bm25", cursor=first["next_cursor"])
+            with self.assertRaisesRegex(ValueError, "invalid search cursor"):
+                index.search("module", limit=1, mode="bm25", cursor="vs1.invalid.1")
+
+    def test_search_cursor_rejects_changed_rules_with_same_ranked_hits(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pages_path = Path(temp_dir) / "pages.jsonl"
+            rules_path = Path(temp_dir) / "retrieval-rules.yml"
+            pages_path.write_text(
+                '\n'.join(json.dumps({"id": f"std{number}", "type": "standard", "title": "Page module"})
+                          for number in (1, 2, 3)) + '\n',
+                encoding="utf-8",
+            )
+
+            def load_with_standard(standard_id):
+                rules_path.write_text(
+                    f"rules:\n  - id: example\n    primary: std1\n    standards: [{standard_id}]\n",
+                    encoding="utf-8",
+                )
+                index = V8StdIndex(pages_path=pages_path, rules_path=rules_path)
+                index.load()
+                return index
+
+            original = load_with_standard("std2")
+            first = original.search("module", mode="bm25", limit=1)
+            changed = load_with_standard("std3")
+            changed_first = changed.search("module", mode="bm25", limit=1)
+            self.assertEqual(first["results"][0]["id"], changed_first["results"][0]["id"])
+            self.assertEqual(first["results"][0]["score"], changed_first["results"][0]["score"])
+            self.assertNotEqual(first["results"][0]["related_preview"],
+                                changed_first["results"][0]["related_preview"])
+            with self.assertRaisesRegex(ValueError, "stale search cursor"):
+                changed.search("module", mode="bm25", limit=1, cursor=first["next_cursor"])
+
+    def test_generated_code_aliases_are_top_ranked(self):
+        layout_results = self.index.search("ыев437", limit=3)["results"]
+        bare_number_results = self.index.search("#437", limit=3)["results"]
+        acc_layout_results = self.index.search("фсс361", limit=3)["results"]
+
+        self.assertEqual(layout_results[0]["id"], "std437")
+        self.assertIn("keyboard_layout", layout_results[0]["score_details"])
+        self.assertEqual(bare_number_results[0]["id"], "std437")
+        self.assertIn("code_variant", bare_number_results[0]["score_details"])
+        self.assertEqual(acc_layout_results[0]["id"], "acc:361")
+        self.assertIn("keyboard_layout", acc_layout_results[0]["score_details"])
+
+    def test_fuzzy_code_lookup_is_limited_to_code_like_queries(self):
+        fuzzy_results = self.index.search("AssignToReadOnlyProperti", limit=3)["results"]
+        exact_results = self.index.search("AssignAliasFieldsInQuery", limit=3)["results"]
+        compact_results = self.index.search("acc361", limit=3)["results"]
+        prose_results = self.index.search("запрос в цикле производительность", limit=5)["results"]
+
+        self.assertEqual(fuzzy_results[0]["id"], "bslls:AssignToReadOnlyProperty")
+        self.assertIn("fuzzy_code", fuzzy_results[0]["score_details"])
+        self.assertNotIn("fuzzy_code", exact_results[0]["score_details"])
+        self.assertNotIn("fuzzy_code", compact_results[0]["score_details"])
+        self.assertFalse(
+            any("fuzzy_code" in item["score_details"] for item in prose_results)
+        )
+
+    def test_generated_numeric_aliases_do_not_pollute_code_snippet_search(self):
+        results = self.index.search(
+            'ПарольSMTP = "qwerty123";\n'
+            "Соединение = Новый HTTPСоединение(Сервер, 443,,,, ПарольSMTP);",
+            limit=5,
+        )["results"]
+
+        self.assertIn("std740", [item["id"] for item in results[:3]])
+        self.assertFalse(
+            any(item["id"] == "std791" and "alias" in item["score_details"] for item in results)
+        )
+
+    def test_field_aware_scoring_prefers_specific_metadata_match(self):
+        diagnostic_results = self.index.search(
+            "общий модуль клиент сервер должен оканчиваться на КлиентСервер",
+            types=["diagnostic"],
+            limit=3,
+        )["results"]
+        role_results = self.index.search(
+            "видимость элементов формы по ролям при большом количестве ролей",
+            types=["standard"],
+            limit=5,
+        )["results"]
+
+        self.assertEqual(diagnostic_results[0]["id"], "v8cs:common-module-name-client-server")
+        self.assertIn("metadata_coverage", diagnostic_results[0]["score_details"])
+        self.assertIn("std737", [item["id"] for item in role_results[:3]])
+
+    def test_explain_snippet_detects_hardcoded_secret_literal(self):
+        result = self.index.explain_snippet(
+            'ПарольSMTP = "qwerty123";\n'
+            "Соединение = Новый HTTPСоединение(Сервер, 443,,,, ПарольSMTP);",
+            limit=5,
+        )
+
+        self.assertTrue(any(item["id"] == "std740" for item in result["standards"][:3]))
+        self.assertTrue(
+            any(signal["type"] == "secret_literal" for signal in result["signals"])
+        )
+
+    def test_hybrid_search_finds_ui_design_standards(self):
+        exact_results = self.index.search("std500", types=["standard"], limit=3)["results"]
+        title_results = self.index.search(
+            "общие правила построения интерфейсов",
+            types=["standard"],
+            limit=5,
+        )["results"]
+
+        self.assertEqual(exact_results[0]["id"], "std500")
+        self.assertEqual(title_results[0]["id"], "std500")
+
+    def test_rules_cover_semantic_and_code_like_queries(self):
+        separation = self.index.search(
+            "форма не должна содержать бизнес-логику и доступ к данным",
+            limit=3,
+        )["results"]
+        query_allowed = self.index.search(
+            'Запрос = Новый Запрос("ВЫБРАТЬ РАЗРЕШЕННЫЕ ...")',
+            limit=3,
+        )["results"]
+        modal = self.index.search("модальные окна в управляемом приложении", limit=3)["results"]
+        log_event = self.index.search("журнал регистрации", limit=3)["results"]
+
+        self.assertEqual(separation[0]["id"], "patterns:engineering:separation_of_concerns")
+        self.assertEqual(query_allowed[0]["id"], "std415")
+        self.assertEqual(modal[0]["id"], "bslls:UsingModalWindows")
+        self.assertEqual(log_event[0]["id"], "std498")
+
+    def test_unmatched_query_is_empty_in_lexical_and_hybrid_modes(self):
+        for query in ("zzzqqqxyz", "абырвалг"):
+            for mode in ("hybrid", "exact", "bm25"):
+                with self.subTest(query=query, mode=mode):
+                    result = self.index.search(query, mode=mode)
+                    self.assertEqual((result["total"], result["results"], result["next_cursor"]),
+                                     (0, [], None))
+
+    def test_semantic_similarity_reranks_but_does_not_add_hybrid_candidates(self):
+        if not self.index.status()["semantic_enabled"]:
+            self.skipTest("search vectors are not generated")
+        query = "GetFormMethod"
+        lexical = self.index.search(query, mode="exact", limit=50)["total"]
+        lexical += self.index.search(query, mode="bm25", limit=50)["total"]
+        hybrid = self.index.search(query, limit=50)
+        self.assertEqual(hybrid["results"][0]["id"], "bslls:GetFormMethod")
+        # Semantic noise used to make every page in the corpus a candidate.
+        self.assertLess(hybrid["total"], len(self.index._pages) // 4)
+        self.assertGreater(hybrid["total"], 0)
+        self.assertGreater(lexical, 0)
+
+    def test_hybrid_keeps_only_results_above_min_result_score(self):
+        query = "обработчик события"
+        hybrid = self.index.search(query, limit=50)
+        scores = [item["score"] for item in hybrid["results"]]
+        self.assertTrue(scores)
+        self.assertTrue(all(score >= MIN_RESULT_SCORE for score in scores))
+        # total is the number of admitted results, not of all candidates.
+        self.assertEqual(hybrid["total"], len(scores))
+        # bm25 has its own score scale and keeps the long tail.
+        bm25 = self.index.search(query, mode="bm25", limit=50)
+        self.assertGreater(bm25["total"], hybrid["total"])
+        self.assertTrue(any(item["score"] < MIN_RESULT_SCORE for item in bm25["results"]))
+
+    def test_off_topic_query_is_empty_in_hybrid_mode(self):
+        for query in ("как сварить борщ", "рецепт пиццы", "football results"):
+            with self.subTest(query=query):
+                result = self.index.search(query)
+                self.assertEqual((result["total"], result["results"], result["next_cursor"]),
+                                 (0, [], None))
+
+    def test_type_filtered_hybrid_search_keeps_matches_below_threshold(self):
+        query = "привести несовместимый интерфейс к ожидаемому клиентом"
+        unfiltered = self.index.search(query, limit=50)
+        self.assertNotIn("patterns:gof:adapter", [item["id"] for item in unfiltered["results"]])
+        filtered = self.index.search(query, types=["pattern"], limit=5)
+        self.assertEqual(filtered["results"][0]["id"], "patterns:gof:adapter")
+        self.assertLess(filtered["results"][0]["score"], MIN_RESULT_SCORE)
+        seen = list(filtered["results"])
+        page = filtered
+        while page["next_cursor"] is not None:
+            page = self.index.search(query, types=["pattern"], limit=5, cursor=page["next_cursor"])
+            seen.extend(page["results"])
+        self.assertEqual(len(seen), filtered["total"])
+        self.assertTrue(all(item["type"] == "pattern" for item in seen))
+        # Nothing matched lexically: the filter does not admit vector noise.
+        self.assertEqual(self.index.search("zzzqqqxyz", types=["pattern"])["total"], 0)
+
+    def test_related_boost_strengthens_only_existing_candidates(self):
+        source = next(page for page in self.index._pages if len(page.get("related", [])) >= 2)
+        linked_id, unmatched_id = (item["id"] for item in source["related"][:2])
+        candidates = {}
+        self.index._add_candidate(candidates, source["id"], 1000.0, "bm25_body", "bm25_body", 1.0)
+        self.index._add_candidate(candidates, linked_id, 10.0, "bm25_body", "bm25_body", 1.0)
+        self.index._add_related_boosts(candidates)
+        self.assertNotIn(unmatched_id, candidates)
+        self.assertEqual(candidates[linked_id]["score"], 10.0 + 40.0)
+        self.assertIn(f"related_boost:{source['id']}", candidates[linked_id]["reasons"])
+
+    def test_semantic_contribution_uses_calibrated_weights(self):
+        if not self.index.status()["semantic_enabled"]:
+            self.skipTest("search vectors are not generated")
+        self.assertEqual((SEMANTIC_SCORE_WEIGHT, SEMANTIC_RRF_WEIGHT), (2400.0, 13000.0))
+        candidates = {}
+        self.index._add_candidate(candidates, "bslls:GetFormMethod", 0.0, "exact", "exact", 1.0)
+        self.index._add_semantic_scores(candidates, "GetFormMethod", rerank_only=True)
+        candidate = candidates["bslls:GetFormMethod"]
+        cosine = candidate["details"]["semantic"]
+        self.assertGreater(cosine, 0)
+        self.assertAlmostEqual(candidate["score"], cosine * 2400.0 + 13000.0 / 61)
+        self.assertEqual(set(candidates), {"bslls:GetFormMethod"})
+
+    def test_semantic_mode_returns_bounded_nearest_pages(self):
+        if not self.index.status()["semantic_enabled"]:
+            self.skipTest("search vectors are not generated")
+        result = self.index.search("Separation of Concerns", mode="semantic", types=["pattern"], limit=5)
+        self.assertEqual(result["results"][0]["id"], "patterns:engineering:separation_of_concerns")
+        self.assertLessEqual(result["total"], SEMANTIC_MODE_MAX_RESULTS)
+        self.assertLessEqual(self.index.search("zzzqqqxyz", mode="semantic")["total"],
+                             SEMANTIC_MODE_MAX_RESULTS)
+
+    def test_runtime_query_embedding_matches_vector_generator(self):
+        import generate_search_vectors as generator
+
+        self.assertEqual((generator.DEFAULT_MODEL, generator.DEFAULT_DIM), (VECTOR_MODEL, VECTOR_DIM))
+        text = "Модальные окна OpenFormModal ПроверкаЗаполнения реквизитов"
+        expected = struct.unpack(f"<{VECTOR_DIM}f", struct.pack(
+            f"<{VECTOR_DIM}f", *generator.embed_text(text, dim=VECTOR_DIM)))
+        actual = struct.unpack(f"<{VECTOR_DIM}f", struct.pack(
+            f"<{VECTOR_DIM}f", *embed_query(text, VECTOR_DIM)))
+        self.assertEqual(actual, expected)
+
+    def test_search_validates_types_and_modes(self):
+        with self.assertRaises(ValueError):
+            self.index.search("std437", types="standard")  # type: ignore[arg-type]
+        with self.assertRaises(ValueError):
+            self.index.search("std437", types=["bad"])
+        with self.assertRaises(ValueError):
+            self.index.search("std437", mode="bad")
+
+    def test_normalizes_legacy_rows_without_markdown_url(self):
+        row = normalize_page_schema(
+            {
+                "id": "std437",
+                "source_path": "std/437.md",
+                "url": "https://v8std.ru/std/437/",
+            }
+        )
+
+        self.assertEqual(row["markdown_url"], "https://v8std.ru/std/437.md")
+        self.assertEqual(row["aliases"], ["std437"])
+        self.assertEqual(row["related"], [])
+
+    def test_page_and_related_use_exact_alias_resolution(self):
+        page = self.index.page("#std437")["page"]
+        related = self.index.related("std437")["related"]
+
+        self.assertEqual(page["id"], "std437")
+        self.assertTrue(
+            any(item["id"] == "bslls:AssignAliasFieldsInQuery" for item in related)
+        )
+
+    def test_acc_placeholder_metadata_is_decoded_at_the_mcp_boundary(self):
+        catalog = json.loads(
+            (REPO_ROOT / "data" / "acc-diagnostics.json").read_text(encoding="utf-8")
+        )
+        diagnostics = [
+            item
+            for item in catalog["diagnostics"]
+            if re.search(r"<[^<>]+>", item["description"])
+        ]
+
+        self.assertEqual(len(diagnostics), 8)
+        for diagnostic in diagnostics:
+            page = self.index.page(f"acc:{diagnostic['code']}")["page"]
+            expected_description = diagnostic["description"]
+            self.assertEqual(page["description"], expected_description)
+            self.assertEqual(
+                page["title"],
+                f"{expected_description} АПК:{diagnostic['code']}",
+            )
+            self.assertNotIn("&lt;", page["title"])
+            self.assertNotIn("&lt;", page["description"])
+
+        acc_423 = self.index.page("acc:423")["page"]
+        self.assertIn("<ИмяКонстанты>", acc_423["title"])
+        self.assertIn("<ИмяКонстанты>", acc_423["description"])
+
+    def test_related_merges_rules_and_normalizes_relation_filters(self):
+        modal_related = self.index.related("bslls:UsingModalWindows")["related"]
+        modal_batch = self.index.explain_diagnostics(["bslls:UsingModalWindows"])
+        canonical = self.index.related("std456", relations=["standard"])["related"]
+        legacy = self.index.related("std456", relations=["related_standard"])["related"]
+
+        modal_standards = [item for item in modal_related if item["relation"] == "standard"]
+        self.assertEqual([item["id"] for item in modal_standards], ["std703"])
+        self.assertEqual(modal_standards[0]["url"], "https://v8std.ru/std/703/#1")
+        self.assertEqual(modal_batch["standards"][0]["id"], "std703")
+        self.assertEqual(modal_batch["standards"][0]["url"], "https://v8std.ru/std/703/#1")
+        self.assertTrue(any(item["id"] == "std437" for item in canonical))
+        self.assertTrue(
+            any(item["id"] == "std437" and item["relation"] == "standard" for item in legacy)
+        )
+        with self.assertRaises(ValueError):
+            self.index.related("std456", relations=["bad"])
+
+    def test_related_and_batch_preserve_multiple_clauses_of_one_standard(self):
+        related = self.index.related("bslls:DeprecatedCurrentDate")["related"]
+        batch = self.index.explain_diagnostics(["bslls:DeprecatedCurrentDate"])
+        expected = {
+            "https://v8std.ru/std/643/#21",
+            "https://v8std.ru/std/643/#31",
+        }
+
+        self.assertEqual(
+            {item["url"] for item in related if item["id"] == "std643"},
+            expected,
+        )
+        self.assertEqual(
+            {item["url"] for item in batch["standards"] if item["id"] == "std643"},
+            expected,
+        )
+
+    def test_explain_snippet_accepts_long_snippet(self):
+        # Регресс: длинный сниппет падал с "query is too long: max 500 characters",
+        # хотя explain_snippet заявляет лимит MAX_SNIPPET_CHARS (4000).
+        snippet = (
+            'Процедура ПриЗаписи(Источник, Отказ) Экспорт\n'
+            '\tПопытка\n'
+            '\t\tОбработатьИсточник(Источник);\n'
+            '\tИсключение\n'
+            '\t\tЗаписьЖурналаРегистрации("Пример", УровеньЖурналаРегистрации.Ошибка, , '
+            'Источник.Ссылка, ПодробноеПредставлениеОшибки(ИнформацияОбОшибке()));\n'
+            '\tКонецПопытки;\n'
+            'КонецПроцедуры\n'
+        ) * 3
+        self.assertGreater(len(snippet), 500)
+        self.assertLess(len(snippet), 4000)
+        result = self.index.explain_snippet(snippet)
+        self.assertIn("diagnostics", result)
+        self.assertIn("signals", result)
+        self.assertIn("std498", [item["id"] for item in result["standards"]])
+
+    def test_explain_snippet_and_batch_diagnostics(self):
+        snippet = self.index.explain_snippet(
+            'Запрос = Новый Запрос("ВЫБРАТЬ РАЗРЕШЕННЫЕ ...")'
+        )
+        modal_call = self.index.explain_snippet('Предупреждение("Текст");')
+        modal_identifier = self.index.explain_snippet("Предупреждение = Новый Структура;")
+        batch = self.index.explain_diagnostics(["acc 1245", "АПК:361", "bad"])
+
+        self.assertTrue(any(item["id"] == "std415" for item in snippet["standards"]))
+        self.assertTrue(any(item["id"] == "bslls:UsingModalWindows" for item in modal_call["diagnostics"]))
+        self.assertFalse(
+            any(item["id"] == "bslls:UsingModalWindows" for item in modal_identifier["diagnostics"])
+        )
+        self.assertTrue(any(item["id"] == "acc:1245" for item in batch["diagnostics"]))
+        self.assertTrue(any(item["code"] == "bad" for item in batch["unknown_codes"]))
+
+    def test_security_input_limits(self):
+        with self.assertRaises(ValueError):
+            self.index.search("x" * 501)
+        with self.assertRaises(ValueError):
+            self.index.page("x" * 1001)
+        with self.assertRaises(ValueError):
+            self.index.related("x" * 1001)
+        with self.assertRaises(ValueError):
+            self.index.explain_snippet("x" * 4001)
+        with self.assertRaises(ValueError):
+            self.index.explain_diagnostics(["acc:1"] * 501)
+        with self.assertRaises(ValueError):
+            self.index.explain_diagnostics(["x" * 201])
+
+    def test_remote_cache_fetches_stale_cache_and_falls_back_on_error(self):
+        fresh_payload = '{"id":"std999","type":"standard","title":"Fresh"}\n'
+        stale_payload = '{"id":"std111","type":"standard","title":"Stale"}\n'
+
+        class FetchingIndex(V8StdIndex):
+            def __init__(self, *args, fail: bool = False, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.fail = fail
+                self.fetches = []
+
+            def _fetch_url(self, url: str, *, max_bytes: int) -> str:
+                self.fetches.append(url)
+                if self.fail or url != self.index_url:
+                    raise URLError("offline")
+                return fresh_payload
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = Path(temp_dir)
+            cache_path = cache_dir / "pages.jsonl"
+            cache_path.write_text(stale_payload, encoding="utf-8")
+            old_time = time.time() - 7200
+            os.utime(cache_path, (old_time, old_time))
+
+            index = FetchingIndex(
+                index_url="https://example.test/pages.jsonl",
+                vectors_url="https://example.test/search-vectors.jsonl",
+                cache_dir=cache_dir,
+                refresh_seconds=3600,
+            )
+            index.load()
+
+            self.assertEqual(index.metadata.source, "https://example.test/pages.jsonl")
+            self.assertIsNotNone(index.resolve("std999"))
+            self.assertIsNone(index.resolve("std111"))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = Path(temp_dir)
+            cache_path = cache_dir / "pages.jsonl"
+            cache_path.write_text(stale_payload, encoding="utf-8")
+            old_time = time.time() - 7200
+            os.utime(cache_path, (old_time, old_time))
+
+            index = FetchingIndex(
+                index_url="https://example.test/pages.jsonl",
+                vectors_url="https://example.test/search-vectors.jsonl",
+                cache_dir=cache_dir,
+                refresh_seconds=3600,
+                fail=True,
+            )
+            index.load()
+
+            self.assertEqual(index.metadata.source, str(cache_path))
+            self.assertIsNotNone(index.resolve("std111"))
+
+    def test_remote_page_cache_uses_ttl_and_fallback(self):
+        pages_payload = '{"id":"std111","type":"standard","title":"Cached"}\n'
+        fresh_payload = '{"id":"std111","type":"standard","title":"Fresh"}\n'
+
+        class FetchingIndex(V8StdIndex):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.fail = False
+                self.fetches = []
+
+            def _fetch_url(self, url: str, *, max_bytes: int) -> str:
+                self.fetches.append(url)
+                if self.fail or url != self.index_url:
+                    raise URLError("offline")
+                return fresh_payload
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = Path(temp_dir)
+            pages_cache = cache_dir / "pages.jsonl"
+            pages_cache.write_text(pages_payload, encoding="utf-8")
+            (cache_dir / "search-vectors.jsonl").write_text("", encoding="utf-8")
+
+            index = FetchingIndex(cache_dir=cache_dir, refresh_seconds=3600)
+            index.load()
+            self.assertEqual(index.fetches, [])
+            self.assertEqual(index.page("std111")["page"]["title"], "Cached")
+
+            old_time = time.time() - 7200
+            os.utime(pages_cache, (old_time, old_time))
+            index.load()
+            self.assertEqual(index.page("std111")["page"]["title"], "Fresh")
+            self.assertEqual(index.fetches, [index.index_url])
+
+            os.utime(pages_cache, (old_time, old_time))
+            index.fail = True
+            index.load()
+            self.assertEqual(index.page("std111")["page"]["title"], "Fresh")
+            self.assertEqual(index.fetches, [index.index_url, index.index_url])
+
+    def test_fetch_url_rejects_oversized_payload(self):
+        class FakeResponse:
+            status = 200
+            headers = {}
+
+            def __init__(self, payload: bytes):
+                self.payload = payload
+                self.offset = 0
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, size: int = -1) -> bytes:
+                if self.offset >= len(self.payload):
+                    return b""
+                if size < 0:
+                    size = len(self.payload) - self.offset
+                chunk = self.payload[self.offset:self.offset + size]
+                self.offset += len(chunk)
+                return chunk
+
+        with patch("runtime.v8std_mcp_index.urlopen", return_value=FakeResponse(b"x" * 11)):
+            with self.assertRaises(IndexLoadError):
+                V8StdIndex()._fetch_url("https://example.test/index.jsonl", max_bytes=10)
+
+    def test_vector_parser_rejects_unsafe_payloads(self):
+        good_vector = base64.b64encode(struct.pack(f"<{VECTOR_DIM}f", *([0.0] * VECTOR_DIM))).decode()
+        small_vector = base64.b64encode(struct.pack("<4f", *([0.0] * 4))).decode()
+
+        def vector_row(**overrides):
+            row = {
+                "id": "std111",
+                "field": "body",
+                "chunk_index": 0,
+                "model": VECTOR_MODEL,
+                "dim": VECTOR_DIM,
+                "vector_base64": good_vector,
+            }
+            row.update(overrides)
+            return row
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            pages_path = temp_path / "pages.jsonl"
+            vectors_path = temp_path / "search-vectors.jsonl"
+            pages_path.write_text(
+                '{"id":"std111","type":"standard","title":"Cached"}\n',
+                encoding="utf-8",
+            )
+
+            invalid_payloads = [
+                vector_row(dim=4, vector_base64=small_vector),
+                vector_row(vector_base64="A" * 8193),
+                [
+                    vector_row(model="model-a"),
+                    vector_row(model="model-b", chunk_index=1),
+                ],
+                # Vectors of another hashing scheme are not comparable
+                # with this runtime's query embedding.
+                vector_row(model="v8std-hash-embeddings-v2"),
+                {key: value for key, value in vector_row().items() if key != "model"},
+            ]
+            for payload in invalid_payloads:
+                rows = payload if isinstance(payload, list) else [payload]
+                vectors_path.write_text(
+                    "\n".join(json.dumps(row) for row in rows) + "\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaises(IndexLoadError):
+                    V8StdIndex(pages_path=pages_path, vectors_path=vectors_path).load()
+
+
+if __name__ == "__main__":
+    unittest.main()

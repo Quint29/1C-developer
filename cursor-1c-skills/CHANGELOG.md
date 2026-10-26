@@ -1,0 +1,2045 @@
+# История версий
+
+## Обновление плагина AI-EDT до 0.2.56 - 2026-09-29
+
+Изменилась работа плагина, набор `ai-edt-tools` и правило `mcp-tool-priority` обновлены под нее.
+
+- `update_database` с включенной по умолчанию защитой данных (`protectData`) не начинает обновление, которое удалило бы таблицу с данными: `confirmationRequired` с `dataLossTables`; `acceptDataLoss=true` - решение пользователя. `inspect_database_sync` отвечает тем же сравнением без запуска.
+- `sync_control operation=retrieve_database_changes` подтягивает изменения, сделанные в базе, в проект - направление, обратное `update_database`; `replaceLocal=true` для проекта с собственными правками, отказ по имени запуска при живом толстом клиенте (`heldBy`).
+- `infobase_admin operation=export_database_snapshot` / `restore_database_snapshot` - вся база одним `.dt`; загрузка не начинается без резервной копии (`backupTo`), монополия на базу на время прогона.
+- `update_database` отказывает (`infobaseChanged`, `nextStep`), пока хранимая копия `ConfigDumpInfo.xml` описывает другую базу (`recordedInfobase`, `currentInfobase`) или базу, замененную загрузкой `restore_database_snapshot` (`loadedFrom`, `loadedAt`); `rebuild_dump_info` отказ снимает. Загрузка помечает копию (`copyMarked`, `infobaseChangeCheck`). `verifyInfobaseContent=true` перед инкрементальным обновлением сверяет копию с самой базой; исход сверки - `infobaseChangeCheck`.
+- `config_io operation=export_database_configuration` / `export_database_extension` - конфигурация или расширение из самой базы в `.cf` / `.cfe` (занятый путь и база не в `EQUAL` - отказ без `overwrite` / `allowOutOfSync`); `list_registered_infobases` - весь список баз EDT; `baseProjectName` у импорта расширения; `outputMissing` у `export_object`.
+- `git`: `show_file_changes` (diff файла, `granularity=method`), `revert_file` (возврат одного файла с концами строк по `.gitattributes`), `create_merge_restore_point` / `restore_merge_point` (точка восстановления перед объединением; `compare_three_way` записывает ее сам); запись `git_revert_file` гасится пресетами; `commit` отвергает шаблоны путей и отвечает `changes` / `unchanged`.
+- `compare_three_way` записывает точку восстановления до объединения, а после перепроверяет названные решения и объекты текущей страницы сравнения (`revalidationNote`, когда за страницей остаются изменения); решения с неизвестными именами отклоняют объединение (`decisionsRefused`); `compare_configurations mode=files` сравнивает два дампа на диске (`failed`, `failedCount`).
+- Формы: заготовки обработчиков пишутся в области модуля (`stubRegion`, `existingProcedureMismatch`), условное оформление формы (`add_form_appearance_rule` и пара к ней, `ConditionalAppearance.dcssca`), `add_form_command_interface_item` с разрешением адреса команды, `list_pictures` со стандартными картинками платформы; `get_form_screenshot` отказывает при несохраненных правках редактора.
+- Метаданные: `set_task_addressing`, `create_route_map`, `add_predefined_item`, `qualifierIgnored` у непригодного квалификатора, `cascadeForms` снимает элементы форм в той же транзакции (`formItemsRemoved`), `install_extension updateDatabase`; запись в объект, закрытый поддержкой, - отказ `supportLock`.
+- Отладка: `pause_thread`, `set_breakpoint_state`, `replaceModuleSet` у `set_breakpoint`, `catchAll=false` без `message` отвергается; запуск с обновлением отказывает до состояния `UPDATED`; ссылка на кадр не переразрешается после новой остановки.
+- `yaxunit_tests`: `suites` / `tags` / `contexts` отвергаются (не фильтры), `reuseRecent` возвращает прогон последних пяти минут (`cached`), квитанции прогонов `receiptPath` (у `vanessa` - с `blockingWindows` при таймауте).
+- `write_module_source normalizeInvalidCharacters` (по умолчанию true): тире - в дефис, неразрывный пробел - в пробел, вне строковых литералов; `invalidCharactersReplaced`, `invalidCharactersPositions`.
+- Запись прав читает `Rights.rights` без DOCTYPE и внешних сущностей и отказывает до записи; `sensitive_data_scan` проверяет `checks` и `customPatterns` со списками допустимого.
+- `ai-edt-tools`: дефект плагина или пожелание к нему - issue в `Desko77/ai-edt` через скил `report-issue` (`SKILL.md`, раздел "Обработка ошибок"; `references/gotchas-and-errors.md`, ссылка на раздел правила "Троттлинг и ошибки"); из предупреждения о пресете Read-only в `references/project-tags-agent-helpers.md` удалено последнее предложение.
+
+## 1.12.0 - 2026-09-29
+
+### Скилы
+
+- Новый скил `report-issue`: дефект или пожелание в `Desko77/claude-code-skills-1c`,
+  `Desko77/cursor-1c-skills` или `Desko77/ai-edt` - проверка, что дефект относится к набору или
+  плагину, поиск дубликата, черновик по разделам с обобщенными именами, отправка через
+  `gh issue create` либо ссылкой на создание issue только после согласия пользователя; метки `bug` /
+  `enhancement` и `from-agent`. Скрипт `issue-draft` (PowerShell и Python): находки в черновике -
+  пути, домашние каталоги, IP, почта, пароли и токены, строки соединения `Srvr`/`Ref`, UUID кроме
+  нулевого, ссылки вне github.com, t.me и сайтов 1С - в stderr с номером строки и код 1; без
+  находок - ссылка `issues/new` с заголовком, текстом и метками и код 0; текст длиннее 8000
+  символов ссылки - ссылка без текста.
+
+### Правила
+
+- `mcp-tool-priority.md`: подтвержденный дефект скила, правила набора или плагина AI-EDT - issue через
+  `report-issue`.
+
+### Инструменты
+
+- `tools/convert_from_claude.py` переносит `.github/ISSUE_TEMPLATE/` в зеркало; из `docs/` переносятся только
+  файлы под контролем git.
+
+### Документация
+
+- Формы issues `.github/ISSUE_TEMPLATE/`: "Дефект" (скил, что произошло, как воспроизвести, ожидалось,
+  версия, клиент, рантайм, платформа), "Пожелание"; ссылки на темы Telegram в выборе формы.
+- README: обсуждение в Telegram - темы [Скилы и правила](https://t.me/AI_EDT_1c/25) и [Плагин](https://t.me/AI_EDT_1c/23),
+  дефекты - в Issues.
+
+## 1.11.0 - 2026-09-29
+
+### Правила
+
+- `mcp-tool-priority.md`: новый раздел "Сначала индекс: AI-EDT до Read, Grep и Bash" - до перебора
+  исходников 1С две проверки доступности AI-EDT (`get_edt_version`, затем `ToolSearch`), при живом
+  инструменте `Grep`/`Glob` и чтение модулей целиком запрещены, `Read` - только по строкам из ответа
+  инструмента; недоступен после двух проверок - отчет первой строкой и только потом перебор. Второй
+  запрет: `execute_query` toolkit и консоль кода - только после чистого `validate_query`
+  (`1c-query-validate` в среде без EDT). Третий запрет: запуск клиента 1С для EDT-проекта -
+  `launch_debugger action=launch` (внешняя обработка - `externalObjectName`,
+  `externalObjectProject`, `startupOption`, `enableExternalObjectDump`), реквизиты один раз -
+  `infobase_admin operation=set_infobase_credentials`; своя строка `1cv8` / `1cv8c` / `1cv8s`
+  с `/N` и `/P`, `db-run.ps1` и личный `start-1c.ps1` - только без EDT или после отказа типового
+  маршрута. `code-exploration-guide.md` ссылается на раздел.
+- `sdd-workflow.md`: артефакт этапа включает след проверок по формату
+  `evidence-format.md` скила 1c-code-review. `agent-verification-patterns.md`: сверка покрытия
+  фиксируется следом проверок того же формата.
+
+### Каталог дефектов
+
+- Скил `1c-code-review`: ревью BSL по каталогу дефектов - 69 карточек с триггером, законной
+  формой, важностью и фикстурой; отчет с идентификаторами находок и ключом
+  `<путь>::<Метод>:<строка>`; шкала важности Critical/Major/Minor с таблицей перевода из
+  прежних четырех уровней.
+- `tools/gen_catalog_index.py`: индекс каталога `INDEX.md` и секции между маркерами
+  `catalog:begin` / `catalog:end` в `anti_patterns.md` и `code-review-checklist.md`
+  генерируются из карточек; режим `--check` для сборки.
+- Содержимое правил `anti_patterns.md`, `code-review-checklist.md` (security-паттерны),
+  `query-optimization-tips.md`, `1c-transactions-and-locks.md`, `form_module_rules.md`,
+  `1c-extension-patterns.md` перенесено в карточки каталога; правила держат сгенерированные
+  секции, входящие ссылки по номерам пунктов переведены на идентификаторы карточек.
+- Гард `tests/skills/check-catalog.mjs`: карточки, реестр `ledger.json`, фикстуры
+  `tests/catalog/` и совпадение генерации; зарегистрирован в `check-all.mjs`.
+- Кейсы `skills/1c-code-review/evals/evals.json`: 17 поведенческих кейсов знания каталога,
+  по дефектному и чистому модулю на каждую группу.
+- Матрица детекторов у всех карточек: таблица "Среда | Детектор | Уровень" из словаря
+  спецификации (EDT: `code_review:<Код>`, `get_project_errors`, `validate_query`,
+  `security_audit`, `ask_1c_ai`; Конфигуратор: `syntaxcheck`, `bsl_validate:<ИД>`,
+  `query_validate`, `meta_validate`, `role_validate`, `form_validate`; обе: `чтение`), при
+  `чтение` в EDT - обязательное обоснование. Сводная `references/detectors.md` с числами
+  покрытия: Critical с детерминированным детектором в EDT либо обоснованием - 12 из 12, с
+  детерминированным детектором хотя бы в одной среде - 35 из 69 (51%), реестр реализованных
+  правил lint - 23 из 23 карточек.
+- Режим `-Catalog` скила `1c-bsl-validate`: lint модулей BSL по реестру каталога дефектов
+  `skills/1c-bsl-validate/scripts/catalog-rules.json` (массив объектов `id`/`title`/`kind`:
+  `regex`, `query-regex`, `structure`). Вход - файл `.bsl` или каталог, вывод - таблица
+  находок (идентификатор, файл, строка, фрагмент; порядок - файл, строка, идентификатор)
+  и строка `EVIDENCE` с компактным JSON (`check`, `ids`, `inputHash`, `status`,
+  `findings`); флаг `-Json` - только JSON, `-RuleId` - одно
+  правило. Коды выхода: 0 без находок, 1 с находками, 2 ошибка вызова. Реализовано 23
+  правила (TXN-01..06, TXN-08, TXN-10, TXN-11, QUERY-01, QUERY-06..09, QUERY-13..16,
+  QUERY-18, SEC-01, PERF-05, MODEL-14, CLIENT-04) на обоих портах - Python и PowerShell
+  дают одинаковый stdout байт в байт на одинаковых входах. QUERY-01 - коррелированный
+  подзапрос в списке полей (structure), некоррелированный подзапрос не репортится;
+  правила `query-regex` матчат текст литерала запроса целиком (перевод строки внутри
+  признака допускается, QUERY-09 - в том числе перед `ВСЕ`); TXN-10 сопоставляет целые
+  идентификаторы вызовов; TXN-08 не репортит блокировку с `УстановитьЗначение` в
+  следующих строках. Гард `tests/skills/check-lint-catalog.mjs` сверяет порты сырым
+  stdout (одно правило и полный прогон каталога карточки) и запрос в нижнем регистре;
+  интеграционный тест `tests/hooks/bsl-validate-evidence.test.mjs` проводит реальный
+  вывод скрипта через хук `evidence-writer.mjs` в вердикт `tools/evidence.py check`.
+- Гейтовый конфиг `skills/1c-code-review/assets/bsl-ls-gate.json` (формат
+  `.bsl-language-server.json`): включены 18 диагностик bsl-language-server, на которые
+  ссылаются карточки, важность каждой равна важности карточки; остальные диагностики - по
+  умолчанию анализатора. Передача конфига - `assets/README.md`.
+- 24 карточки с источником "правило" дополнены номерами стандартов `#stdNNN` (поиск и
+  расшифровка диагностик через `v8std`).
+- Гард `check-catalog.mjs`: словарь детекторов и уровни, обоснование при `чтение` в EDT,
+  пороги покрытия (100% Critical; 50% всех - сравнение по счетчикам без округления),
+  реестр реализованных lint-правил `skills/1c-bsl-validate/scripts/catalog-rules.json`:
+  детектор `bsl_validate:<ИД>` вне реестра помечается `planned` и в покрытие не входит,
+  при пустом реестре недобор порога печатается предупреждением, сверка гейтового конфига
+  с карточками в обе стороны.
+- Сверка покрытия каталога `references/reconciliation-2026-09.md`: реестр из 47 признаков
+  каталога `1c-quality-gate` (22 AI-, 21 BSL-, 4 QRY-) и трех проверок `comol/ai_rules_1c`;
+  17 признаков закрыты имеющимися карточками, 30 карточек добавлено (MODEL-02..16, PERF-05,
+  PERF-06, QUERY-13..18, TXN-11, FORM-01, CLIENT-04, META-01, PROC-01..03), 1 отклонен.
+  Группы `FORM-`, `META-`, `PROC-` открыты; фикстура типа `evidence` - файл следа
+  `evidence.json` с полем `kind`, гард проверяет его наличие и структуру.
+
+### Хуки
+
+- Новый хук `repeat-failure.mjs` (`PostToolUseFailure`): на третьем подряд падении того же вызова с той же
+  ошибкой (инструмент, первая строка ошибки, отпечаток аргументов) добавляет в контекст указание сменить
+  подход или спросить пользователя; не блокирует; `REPEAT_FAILURE_OFF=1` выключает.
+- Гейт завершения хода: проверку закрывает только выполнение либо подтверждение пользователя командой
+  `/quality release check <проверка> <причина>`, найденной в журнале сессии; записи модели `skipped`,
+  `probe down`, `not_verified` - заявки на пропуск с готовой командой подтверждения в тексте блока.
+- Гейт завершения хода: `release gate` с текущим `diffHash` снимает блок без записи `scope`, снятия с чужим
+  `diffHash` и просроченные не учитываются; `diffHash` всех писателей и инструментов считается от HEAD
+  отметки сессии; правками сессии считаются только файлы с событиями этой сессии.
+- Гейт завершения хода: повторный `scope` с тем же `diffHash` задает состав проверок, события после
+  первого `scope` остаются в прогоне; записи `scope`, `skipped`, `not_verified` серию блоков не прерывают;
+  неподтвержденное снятие ход не блокирует и называется в причинах, когда ход заблокирован.
+- `edt-gate.mjs`: снятие `release gate` действует, когда команда `/quality release gate` есть в журнале
+  сессии сообщением пользователя.
+- Текст блока: абсолютные пути инструментов, команды с `--base`, не больше 20 путей. После двух блоков
+  подряд без новых событий следа ход завершается, пользователю уходит `systemMessage` с причинами;
+  `QUALITY_STOP_OFF` выключает гейт.
+- `edt-gate.mjs`: процесс завершается без `process.exit` при открытых соединениях; множество изменений
+  считается после ответа `/health`.
+- Поиск `evidence.py` для гейта завершения хода: `CLAUDE_PLUGIN_ROOT/tools/evidence.py`,
+  `tools/evidence.py` на уровень выше каталога `hooks/`, домашняя установка
+  `<дом>/.claude/tools/1c-skills/evidence.py` через `claudeHome()`.
+- Каталог скила для чисел Critical/Major `code_review`: первый из `CLAUDE_PLUGIN_ROOT`,
+  каталога над `hooks/` и `<дом>/.claude`, в котором есть
+  `skills/1c-code-review/assets/bsl-ls-gate.json`. Нет такого корня - числа нулевые,
+  событие записывается.
+- Довод `--only <корень>` (повторяемый) у хуков `evidence-writer`, `session-context`,
+  `release-writer`, `quality-baseline`, `quality-arm`, `quality-stop`, `edt-gate`,
+  `support-guard`, `skill-suggester`. Список пуст - хук работает в любом каталоге.
+  Иначе - когда `cwd` payload (без него текущий каталог процесса) равен корню или лежит
+  внутри него. Вне области выход 0, без вывода и без записи в след. `--only` без
+  значения - хук без ограничения и строка в stderr.
+
+- Гейт завершения хода: `hooks/quality-baseline.mjs` (событие `baseline` - HEAD и каноническое множество с
+  хешами, один раз на сессию, при `resume` / `compact` / `clear` не перезаписывается),
+  `hooks/quality-arm.mjs` (события `armed` по правкам через `Write`, `Edit`, `MultiEdit`, `NotebookEdit` и
+  MCP-правки AI-EDT), `hooks/quality-stop.mjs` (`Stop`: правки сессии в файлах 1С без вердикта
+  `tools/evidence.py check --strict` дают выход 2 с перечнем пробелов и прямым путем; `stop_hook_active`
+  блок не снимает; отказ валидатора или отметки - выход 0 с диагностикой).
+- `hooks/evidence-writer.mjs` пишет `applied` для проверки `cross_review@any`, когда команда запускает
+  `codex-code-review.sh` либо `cursor-run.ps1` исполняемым токеном и в выводе есть маркер вердикта.
+
+- `hooks/evidence-writer.mjs` (`PostToolUse` / `PostToolUseFailure`, заякоренный матчер):
+  записывает события `applied` и `failed` следа проверок по факту вызова инструмента -
+  MCP-инструменты проверки (ключ сервера с дефисами, точками и подчеркиваниями), фасады
+  по операции (`diagnostics`: `get_project_errors`, `validate_for_export`;
+  `insights`: `detect_query_anti_patterns`), `Bash`/`PowerShell` со скриптами набора
+  (`bsl-validate`, `query-validate`, `meta-validate`, `role-validate`, `form-validate`)
+  при наличии строки результата `EVIDENCE {...}` в выводе. Событие несет `toolUseId`,
+  `inputHash`, `responseHash`, `diffHash` (через `hooks/_changeset.mjs`), разобранный
+  итог (`code_review` - числа Critical/Major/Minor по кодам диагностик из
+  `assets/bsl-ls-gate.json`, `get_project_errors` - ошибки critical и предупреждения
+  minor, `syntaxcheck` - pass/error); неразобранный итог пишется `status: "unknown"` с
+  фрагментом ответа. Итог не выдумывается.
+- `hooks/session-context.mjs` (`SessionStart`, все источники startup/resume/clear/
+  compact/fork): сообщает модели идентификатор сессии и путь каталога событий через
+  `additionalContext`, вычищает каталоги сессий старше 7 дней.
+- `hooks/release-writer.mjs` (`UserPromptSubmit`): команда
+  `/quality release gate|check <область> <причина> [--for 30m|2h|1d]` (срок по
+  умолчанию 4 часа) записывает событие `release` с `diffHash`, `expiresAt` и
+  источником `user_prompt`; прочие промпты игнорируются.
+- `commands/quality.md`: команда `/quality release` в наборе команд - файл команды
+  с синтаксисом обеих форм; событие `release` пишет хук, команда исполняемых шагов
+  не имеет.
+- Общий модуль `hooks/common/quality-events.mjs`: запись событий хуками по схеме
+  `tools/quality_events.py` - номер последовательности lock-файлом, имя
+  `<время>-<номер>-hook-<id>.json` с локальным временем, тело JSON с сортировкой
+  ключей, запись временным файлом с переименованием; конкурентные записи хуков дают
+  отдельные файлы.
+- `hooks/hooks.json`: регистрация трех хуков; `hooks/README.md`: раздел "След
+  проверок". Установщик `tools/install_home.py` ставит каталог `hooks/` целиком,
+  новые файлы входят в компонент без правки.
+- Тесты `tests/hooks/`: 220 проверок в 15 файлах (матчер на реальных именах инструментов,
+  разбор итогов, запись applied/failed, параллельная запись, строка EVIDENCE и защита
+  от echo-подделки, три источника SessionStart, очистка устаревших сессий, команды
+  снятия) и сквозной тест с `python tools/change_profile.py`, `tools/evidence.py add`
+  и `evidence.py check --strict` (события хука закрывают обязательные проверки,
+  вердикт clean). Гард `tests/skills/check-hooks.mjs` зарегистрирован в `check-all.mjs`.
+- `hooks/edt-gate.mjs` (`PreToolUse`, матчер `Read|Grep|Glob|Bash|PowerShell`, первый в списке):
+  отклоняет чтение исходников EDT-проекта, когда AI-EDT в `phase` `ready` и имя проекта есть в
+  `projects` ответа `/health` (`instance` начинается с `AI-EDT @`). Причина называет путь, ключ
+  сервера, инструмент-замену и команду `/quality release gate`. Для `Bash` и `PowerShell` отказ
+  только если в команде есть утилита чтения и путь исходника или сегмент `src`. Ответ `/health`
+  кэшируется 60 секунд. Внутренняя ошибка не блокирует вызов.
+- Окно-исключение на `PostToolUseFailure` (матчер `edt-gate` в `hooks/hooks.json`: инструменты
+  проверки и `launch_debugger`, `debug_launch`, `start_client`): нет ответа `/health`,
+  отказ авторизации или `phase` не `ready` - событие `probe` со `status` `down` и файл
+  `<база>/<ключ>/<session>/edt-window.json` на 15 минут (`until`, `server`). Ошибка
+  операции при `phase` `ready` пишет `probe` со `status` `ok` и окно не открывает. Отказ
+  `launch_debugger`, `debug_launch` или `start_client` открывает окно всегда; `status` события
+  `probe` остается по факту `/health`. Снятие - `/quality release gate` (пропускает и чтение,
+  и запуск). Переменная `AI_EDT_GATE` со значением кроме пустого и `on` отключает ворота:
+  выход 0 и строка в stderr. Класс запуска `Bash`/`PowerShell`: токен `1cv8.exe`, `1cv8c.exe`,
+  `1cv8s.exe` (или без расширения) либо `start-1c.ps1`, цель - путь базы или проекта в команде,
+  иначе `cwd`, если он под EDT-проектом.
+- Тесты `tests/hooks/edt-gate.test.mjs`: временный EDT-проект, подмена `HOME`/`USERPROFILE`,
+  заглушка `/health`, класс запуска и три выхода (окно после операционного отказа, `release gate`,
+  `AI_EDT_GATE`).
+
+### Скилы
+
+- Новый скил `1c-role-edit`: точечная правка существующей роли без пересборки. Операции `add-rights`,
+  `set-rights`, `remove-rights`, `deny-rights`, `set-rls`, `remove-rls`, `add-template`, `set-template`,
+  `remove-template`, `modify-property`; UUID роли и права других объектов сохраняются, набор прав объекта
+  замыкается по зависимостям, условия RLS прав, оставленных замыканием, сохраняются.
+- Новый скил `1c-db-cfe-admin`: расширения конфигурации в информационной базе через `ibcmd` - `list`,
+  `check`, `set-properties` (безопасный режим, активность, защита от опасных действий, область действия,
+  профиль безопасности), `delete`; `-WhatIf` печатает команду без запуска.
+- Новый скил `1c-change-package`: пакет ручного внесения правок в Конфигуратор по двум версиям модулей -
+  блоки "Найти" и "Заменить целиком на" по методам, добавленные и удаленные методы, код вне методов
+  смежными участками; где однозначного фрагмента нет - пункт "Заменить модуль целиком".
+- `1c-role-compile`, `1c-role-validate`: таблица допустимых прав сверена с платформой 8.3.27
+  (`CalculationRegister` - `Update`, `Edit`; `ChartOfAccounts` - `InteractiveDeleteMarked` и права истории
+  данных; `ChartOfCalculationTypes`, `BusinessProcess`, `Task` - `InteractiveDeleteMarked` и права истории
+  данных; у `WebService`, `HTTPService`, `IntegrationService` прав на уровне сервиса нет, `Use` - у операции,
+  метода и канала). Набор прав замыкается по зависимостям так же, как при загрузке платформой, права
+  выводятся в порядке выгрузки; условие RLS ставится и на право, добавленное замыканием. Вложенные права
+  `View` и `Edit` пишутся только при отличии от `setForAttributesByDefault`.
+- `1c-role-compile`, `1c-role-edit`: у регистров принимаются вложенные объекты `Dimension`, `Resource`,
+  `Attribute`, `StandardAttribute`, `Command` (у регистра расчета еще `Recalculation`), их `View` и `Edit`
+  нормализуются по `setForAttributesByDefault`. `View` и `Edit` вложенного объекта согласуются по загрузке
+  платформы: `Edit=true` при `View=false` дает `View=true`, `View=false` без `Edit` дает `Edit=false`.
+  Право стандартного реквизита с условием RLS пишется при любом значении; условие на реквизите, измерении
+  и ресурсе не записывается (`role-compile` - предупреждение, `role-edit set-rls` - ошибка ввода).
+- Роли по стандарту #std532: новая роль `ПолныеПрава` / `FullAccess` получает `setForNewObjects`;
+  `role-validate` и `role-edit` предупреждают о `setForNewObjects` у другой роли, о правах на поля без прав
+  на объект и о правах только на поля при `setForAttributesByDefault`.
+- `1c-cfe-patch-method`, `1c-cfe-diff`: разбор модуля понимает английские ключевые слова, директивы и
+  аннотации BSL (`Procedure`, `EndProcedure`, `&AtServer`, `&Around`, `#Insert` и остальные), без учета регистра.
+- `1c-bsp-command`, `1c-bsp-registration`: тип команды `ТипКомандыЗагрузкаДанныхИзФайла()` с обязательным
+  `Модификатор`; отдельный шаблон обработчика `СозданиеСвязанныхОбъектов` с параметром `СозданныеОбъекты`.
+- `1c-form-validate`, `1c-cf-validate`, `1c-role-validate`, `1c-interface-validate`, `1c-subsystem-validate`,
+  `1c-epf-validate`, `1c-cfe-validate`: ошибка при расхождении версии формата XML части (форма, права,
+  командный интерфейс, `Ext/*.xml`, `BaseForm` заимствованной формы) с версией дескриптора.
+- `1c-db-load-cf`, `1c-db-load-xml`, `1c-db-load-git`, `1c-db-load-dt`, `1c-db-update`, `1c-storage-ops`,
+  `1c-db-cfe-admin`: изменяющая операция над базой с `"role": "prod"` в `.v8-project.json` отклоняется кодом 1
+  без ключа `-AllowProd` (`--allow-prod`); `1c-db-list` показывает и записывает поле `role`.
+- `skill-creator`: `scripts/improve_description.py` передает `thinking` `{"type": "adaptive"}`.
+- `skills/1c-db-run/SKILL.md`: раздел "Когда EDT доступна" - EDT-проект запускается через
+  `launch_debugger action=launch`; скрипт `db-run.ps1` остается для случая без EDT и для отказа плагина.
+- `skills/1c-config-index`: точечный запрос к построенному индексу в обоих портах. `-IndexPath` вместе
+  с `-Object <FQN>` печатает запись объекта в формате и порядке ключей индекса, имя сверяется без учета
+  регистра (объекта нет - в stderr `Object not found: <FQN>`, код 1); `-IndexPath` вместе с
+  `-Find <подстрока>` печатает FQN подходящих объектов по возрастанию без учета регистра (совпадений
+  нет - пустой вывод, код 0); запрос вместе с доводом сборки, запрос без `-IndexPath` и `-IndexPath` без
+  запроса отвергаются кодом 2. Пустой индекс, индекс из пробелов и неразбираемый файл дают в stderr
+  `Index file could not be read: <файл>` и код 1, разобранный индекс без объектов (`null`, массив,
+  пустой объект) - `Index file has no objects: <файл>` и код 1. Ранее обязательный `-ConfigPath` стал
+  обязательным только для сборки. Оба порта пишут в stderr LF, вывод портов совпадает байт в байт,
+  двенадцать кейсов `tests/skills/cases/config-index/query-*.json`.
+
+### Агенты
+
+- `agents/1c-explore.md` (новый каталог): субагент-разведчик EDT-проекта, модель `sonnet`,
+  `disallowedTools: Grep, Glob, Bash, PowerShell`; блок "Сначала индекс" совпадает с правилом
+  дословно (проверяется гардом), при недоступном AI-EDT останавливается с отчетом.
+
+### Инструменты
+
+- `tools/convert_from_claude.py`: правило `v8unpack-source-structure` переносится в Cursor с `globs`
+  `**/*.obj.bsl`, `**/*.mgr.bsl`, `**/*.elem.json` - по `paths` исходного правила.
+- `tools/convert_from_claude.py`: каталог `assets/` скила переносится в зеркало; гарды `check-hooks`,
+  `check-index-first`, `check-tools`, `check-catalog` и каталоги `tests/hooks`, `tests/tools` в зеркало
+  не переносятся.
+- Валидатор `tools/validate_ruleset.py` сверяет счетчики README с фактическим составом
+  репозитория: заголовок "## Скилы (N)" и сумма колонки "Скилов" таблицы групп - с числом
+  каталогов skills/, "**N правил**" - с числом файлов rules/*.md. Не найденное место
+  счетчика (README переписан) - тоже блокирующая находка. Тесты `tests/tools/ruleset/`.
+- Каноническое множество изменений git-репозитория: спецификация
+  `skills/1c-code-review/references/changeset.md` (состав относительно базового коммита,
+  запись файла `path`/`status`/`sha256`/`renamedFrom`, `diffHash`, сериализация JSON),
+  `tools/changeset.py` (функции `compute_changeset` и `build_payload`,
+  CLI `--repo`/`--base`/`--json`, таблица без `--json`, код выхода 2 при отказе)
+  и `hooks/_changeset.mjs` (экспорт `computeChangeset` и `buildDiffPayload`,
+  тот же CLI); обе реализации дают одинаковый JSON байт в байт. Запись `diffHash`
+  кадрируется префиксом длины пути (длина в байтах UTF-8, путь, статус, sha256,
+  разделители NUL) - имя с табуляцией или переводом строки не порождает коллизию.
+  Запись `deleted` с обычным файлом на диске арбитрируется сравнением blob-хешей
+  (случай `git rm --cached`, в том числе игнорируемый путь). Пути-гитлинки
+  (подмодули, режим `160000` в индексе или в base) исключаются целиком. Каталог
+  следа внутри корня репозитория не входит в пути `git ls-files --others`: база
+  после `realpath` (отказ - путь как есть) сравнивается с корнем, обратные слеши
+  заменены на `/`, на `win32` без учета регистра. Записи `git diff` не фильтруются.
+  Путь-операнд команд git отделен `--` (имя с ведущим дефисом иначе читается как ключ).
+  Тесты `tests/tools/changeset/`: 23 сценария во временном git-репозитории (чистое
+  дерево, staged, компенсированная правка, untracked, удаление, переименование,
+  игнорируемый файл, CRLF против LF, кириллица и пробелы в путях, явный base,
+  кадрирование diffHash на синтетических записях, `git rm --cached` с игнором,
+  гитлинк, путь с ведущим дефисом, каталог следа внутри дерева), вывод двух CLI
+  сверяется байт в байт, детерминированность - двойным запуском.
+- Профиль правки `tools/change_profile.py`: класс объема C0-C3 по каноническому множеству
+  (строки BSL - сумма добавленных и удаленных по `git diff --numstat`, файл без записи numstat
+  считается целиком; новый объект метаданных - добавленный файл метаданных), архетипы по путям
+  множества и тексту diff (добавленные строки и контекст), среда edt/configurator по предку
+  с `.project`, содержащим `com._1c.g5.v8.dt`; обязательный состав проверок по таблице
+  "архетип x среда" (идентификаторы `<проверка>@<среда>`, класс C2 и выше добавляет
+  `cross_review`, C3 - `adversarial_audit`); поле driver называет поднявшее класс условие;
+  довод `--vendor-copy` понижает C2/C3 до C1 с обоснованием в следе. Событие `scope` пишется
+  в каталог следа (`--session`, `--no-write`), функция `compute_profile(repo_dir, base,
+  vendor_copy)`. Спецификация - `skills/1c-code-review/references/profile-map.md`.
+- След проверок `tools/evidence.py`: подкоманды `add` (типы `skipped` с классом
+  `tool_unavailable`/`not_applicable`, `not_verified`, `probe`; типы `applied` и `release`
+  отвергаются кодом 2 - их пишет только хук), `check --strict` (состав проверок - последнее
+  `scope` с текущим `diffHash`, события - с тем же хешем после первого такого `scope`; вердикты
+  clean/with_gaps/blocked, коды 0/1/3; blocked - отсутствие scope с текущим хешем, поврежденный
+  файл, обязательная проверка без события, `applied` с critical без снятия, `applied` без
+  `toolUseId`, пропуск без класса или ссылки, отсутствие probe ok по источнику закрывающего
+  applied) и `render` (markdown: таблицы "Проверено", "С пробелами"
+  с классами, "Не проверено"). Общий модуль `tools/quality_events.py`: атомарная запись
+  события временным файлом с переименованием, чтение каталога сессии, поврежденный JSON
+  возвращается событием corrupt. След лежит в `<база>/<ключ>/<session>/events/`
+  вне репозитория. `QUALITY_STATE_DIR` задает базу, только если путь абсолютный:
+  на `win32` - `X:\` или `X:/` либо два слеша и символ не-слеш (UNC), на остальных
+  платформах - начало с `/`; иное значение игнорируется, как пустое, и берется
+  `<домашний каталог>/.claude/state/quality`. Очистка удаляет только каталоги с именем
+  из 1-32 символов `[A-Za-z0-9._-]`, дефиса и 12 hex; в каталоге ключа - только
+  подкаталоги сессий старше 7 дней. Каталог ключа снимается, когда в нем не осталось
+  ничего, кроме `edt-health.json` старше того же срока.
+  Спецификация - `skills/1c-code-review/references/evidence-format.md`.
+  Тесты: `tests/tools/profile/` - 20, `tests/tools/evidence/` - 49.
+
+### Установка
+
+- Компонент `commands`: в дом ставится только `commands/quality.md`
+  (`<дом>/commands/quality.md`). Остальные команды каталога `commands/` и личные
+  команды пользователя установщик не трогает.
+
+- `tools/install_home.py`: установщик компонентов в `~/.claude` (компонент `agents`), манифест
+  `.install-manifest.json` (путь и sha256), конфликт при внешней правке файла (код 1), `--force`
+  с резервной копией в `backup/install-<время>/`, `--dry-run`, `--check`. Раннер
+  `tests/tools/run_tests.py`, скил `claude-env-setup` описывает установку
+  агентов через установщик.
+- Установщик ставит три компонента: `agents` (весь каталог `agents/` в `~/.claude/agents/`),
+  `hooks` (весь каталог `hooks/` в `~/.claude/hooks/1c-skills/`) и `tools` (только
+  `install_home.py` в `~/.claude/tools/1c-skills/`); у компонента может быть список включаемых
+  файлов `include` (точные пути или glob-шаблоны внутри исходного каталога). Тесты установщика:
+  16.
+
+### Тесты
+
+- Кейсы `cases/bsl-validate/catalog-<ИД>.json`: 23 кейса по одному на правило реестра - вход
+  каталог фикстур карточки, прогон `-Catalog` с `-RuleId`, проверка строк находок в
+  `defect.bsl` по манифесту и отсутствия находок в `clean.bsl`; проходят на обоих рантаймах.
+- Гард `check-lint-catalog.mjs`: каждое правило реестра подтверждается своей парой фикстур
+  (defect.bsl - находки ровно на `expected`, clean.bsl - ноль), JSON обоих портов на
+  одинаковых входах совпадает; зарегистрирован в `check-all.mjs`.
+- Гард `check-index-first.mjs`: блок между маркерами `index-first:begin/end` в правиле и агенте
+  совпадает дословно. Гард `check-tools.mjs`: unit-тесты инструментов проходят под раннером.
+
+### Источники
+
+- Источник текстов стандартов 1С по номеру: публичный MCP `https://ai.v8std.ru/mcp` (стандарт по
+  `#stdNNN`, расшифровка диагностик ACC/BSLLS/EDT, поиск по теме). Строка маршрутизации и политика
+  данных - в `rules/mcp-tool-priority.md` ("Стандарты: v8std и напарник"), правило ссылок на
+  стандарты - в `rules/1c-coding-standards.md`, строка в README, компонент в `claude-env-setup`.
+
+## Обновление плагина AI-EDT до 0.2.55 - 2026-09-24
+
+Изменилась работа плагина (выпуски 0.2.54 и 0.2.55), набор `ai-edt-tools` и правило `mcp-tool-priority` обновлены под нее.
+
+- `infobase_admin operation=register_infobase` регистрирует существующую базу (`path` или `connectionString`) в списке EDT и связывает с проектом одним вызовом, с учетными данными базы.
+- Запись списка баз не отвязывает конфигурации запуска (`launchApplicationIds`); клиента `start_client` останавливает `launch_debugger action=terminate`.
+- `update_database` отказывает на `ConfigDumpInfo.xml` чужого формата, `sync_control syncOperation=rebuild_dump_info` перестраивает файл выгрузкой Конфигуратора; `dryRun` отвечает на месте и перечисляет непроверенное в `notCheckedInDryRun`.
+- `sync_control status` по каждой привязке, `mark_synchronized` для базы без базовой линии.
+- `config_io operation=export_infobase_objects` - объекты конфигурации базы в XML Конфигуратора.
+- `mxl_workshop operation=check_print_width`, `settingsWarnings` у записи настроек СКД, сужение обходов `moduleFqn` / `methodName` / `subsystemName`, `find` в справке фасадов.
+- `extension_workshop borrow_object includeChildren`, `adoptedFormAttributes` у пути данных формы расширения, `dependency_graph edgeKinds`.
+- `naparnik` - вопрос 1С:Напарнику из EDT (мост выключен по умолчанию; в режиме чтения доступен поиск по документации и ИТС в базе знаний сервиса, ответ без текста и без вызовов инструментов - отказ); строка в правиле-маршрутизаторе.
+- `vanessa`: доводы списка (`listKind`, `listName`, `column`, `columnValue`, `buttonTitle`) собирают действие в работающей 1С; кадр после действия - верхнее окно клиента тестирования (`frame-after-action.png`), не снимок экрана.
+- Тяжелые вызовы (обновление базы, в том числе перед запуском клиента, запуск Конфигуратора, создание базы) - не больше трех одновременно, отказ `503` с `Retry-After`.
+
+## Обновление плагина AI-EDT до 0.2.53 - 2026-09-22
+
+Изменилась работа плагина, набор `ai-edt-tools` обновлен под нее.
+
+- `debug_launch` / `launch_debugger action=launch` / `start_client`: доводы `clientType` (`thin`, `thick`, `web`) и `runMode` (`ordinary`, `managed`); конфигурация с основным режимом обычного приложения стартует в толстом клиенте, `/RunModeOrdinaryApplication` кладется в параметры базы на ссылке сеанса (список баз на диске не пишется), `clientType=thin` без `runMode=managed` у нее отвергается; ответ несет `clientType`, `clientTypeSource`, `runMode`, `runModeSource`, `runModeFlagState`, `runModeFlagScope`, `infobaseAdditionalParameters`.
+- `create_launch_config` привязывает базу в текущем контексте привязки проекта (в ветке у проекта под версионным контролем).
+- `sync_control` читает хранилище сигнатур в рабочей области (EDT 2026), затем в `%APPDATA%/.1cedt`; `index.idx` версионного формата читается и переписывается.
+- Другой бандл EDT добавляет плагину инструменты и модули OSGi-сервисами (`IMcpTool` со свойством `ru.aiedt.mcp.tool.writes`, `IModuleSourceProvider`); модули без файла читаются и пишутся по адресу инструментами модулей, ответы по индексу BSL заканчиваются строкой покрытия поставщика.
+
+## Обновление плагина AI-EDT до 0.2.52 - 2026-09-21
+
+Изменилась работа плагина (выпуски 0.2.51 и 0.2.52), набор `ai-edt-tools` обновлен под нее.
+
+- Новый фасад `git`: `status`, `branches`, `log`, `commit` (только названные `paths`, add-all отвергается; автор из конфигурации репозитория или `authorName`/`authorEmail`; `boundInfobase` у привязанной ветки), `checkout` (`branch`, `createBranch`; переход поверх незакоммиченных файлов отвергается с их списком). Записи гасятся пресетами как `git_commit` / `git_checkout`.
+- Отказ несет готовый следующий вызов в `helpHint` (`tool`, `arguments`): «проект не найден» - `project_admin operation=list_projects` с `suggestedProjectName`; «владелец не найден» - `insights operation=semantic_metadata_search`.
+- `tools/list` публикует `annotations` MCP (`readOnlyHint`, `idempotentHint`, `openWorldHint`) - только значения, отличные от умолчаний.
+- `content_assist` принимает пакет `positions` одним вызовом; `update_database refreshWorkspace` (по умолчанию включен) читает диск перед состоянием; `symbol_info computeTypes` отвечает `MODEL_MOVED` вместо недоотдачи типа; `GET /health` несет `projects`; Attach-запуск отвергает `waitForEndpoint`.
+
+## 1.10.3 - 2026-09-18
+
+### db-load-git
+
+Порт PowerShell: вывод git читается через `System.Diagnostics.Process` с кодировкой UTF-8, без
+участия кодовой страницы консоли. Относительный путь файлов `Ext/` строится из частей объекта;
+прежде он получался заменой префикса каталога конфигурации в полном пути, и при коротком имени
+8.3 у каталога в список загрузки попадал абсолютный путь дубликатом.
+
+### Тесты
+
+При провале утверждения по stdout раннер печатает начало stdout и stderr кейса.
+
+## 1.10.2 - 2026-09-17
+
+### db-load-git
+
+Пути с не-ASCII символами читаются из git без экранирования: каждый вызов git идет с
+`core.quotePath=false`, порт PowerShell читает вывод как UTF-8 независимо от кодовой страницы
+консоли. Прежде при настройке git по умолчанию объект с кириллическим именем возвращался в
+экранированном виде и молча выпадал из списка загрузки (заявка #6).
+
+### Тесты
+
+Шаг `git` в `preRun` кейса: команда git в рабочем каталоге. Кейс `db-load-git/cyrillic-paths`.
+Всего 865 кейсов.
+
+## 1.10.1 - 2026-09-11
+
+### claude-env-setup
+
+Порт AI-EDT по умолчанию `12250`; `8765` это порт другого плагина, EDT-MCP. При обнаружении
+плагина фактический URL читается из `.mcp.json` рабочей области; свободный порт означает
+"сервер не запущен", а не "плагин не установлен".
+
+## 1.10.0 - 2026-09-10
+
+### Автоименование обработчиков событий
+
+`form-compile`, `form-edit`, `form-decompile`: событие таблицы `OnEditEnd` дает обработчик
+`<Элемент>ПриОкончанииРедактирования`. Прежде карта суффиксов содержала ключ `OnEndEdit`, и
+обработчик получал имя `<Элемент>OnEditEnd`.
+
+Суффиксы добавлены для событий `BeforeEditEnd`, `OnActivateCell`, `OnActivateField`, `ValueChoice`,
+`DragEnd`, `OnGetDataAtServer`, `BeforeLoadUserSettingsAtServer`, `OnUpdateUserSettingSetAtServer`,
+`Creating`, `EditTextChange`, `OnActivate`. Каждое допустимое событие элемента теперь имеет суффикс
+в карте; `form-decompile` распознает такие имена и не выводит их явными `handlers`.
+
+Событие `Opening` принимается для поля ввода без предупреждения. Ключ `Drop` из карты удален:
+такого события у элементов формы нет. Таблица суффиксов в `docs/form-dsl-spec.md` приведена к
+составу карты: 32 события.
+
+### form-add
+
+`-FormName` проверяется как идентификатор 1С до первой записи на диск: буквы, цифры и подчеркивание,
+первый символ не цифра. Недопустимое имя - отказ с кодом возврата 1. `-Synonym` записывается в
+описатель формы с экранированием `&`, `<` и `>`.
+
+### meta-validate
+
+Проверки 6a-6d регистрации форм в `ChildObjects`: запись `<Form>` содержит имя, а не вложенные
+элементы (6a); описатель `Forms/<Имя>.xml` существует (6b); описатель разбирается как XML (6c);
+`Name` в описателе совпадает с зарегистрированным именем (6d).
+
+Порт python: обходы дерева в проверках 17, 18 и 19 пропускают узлы-комментарии. Прежде объект
+с комментарием в XML завершал проверку с ошибкой `AttributeError`.
+
+### meta-edit
+
+Определение с `forms` или `templates` в секциях `add` и `remove`, в любом написании ключей и
+включая `-Operation add-form`, `add-template`, `remove-form`, `remove-template`, отклоняется до
+первой записи с указанием скила: `form-add`, `template-add`, `form-remove`, `template-remove`.
+Прежде `add-form` и `add-template` записывали в `ChildObjects` вложенный блок с `Properties`
+вместо имени, а `remove-form` и `remove-template` не находили регистрацию по имени. Ветка
+построения такого блока и типы `forms`, `templates` в списках допустимых дочерних элементов
+удалены.
+
+### Тесты
+
+Новые кейсы: автоименование событий таблицы, поля ввода и календаря с круговым прогоном через
+`form-decompile`; отказ `form-add` на недопустимом имени и экранирование синонима; пять кейсов
+регистрации форм в `meta-validate`, включая комментарий внутри записи `<Form>`; три кейса отказа
+`meta-edit` на формах и макетах и кейс на недопустимый дочерний тип у константы. Всего 864 кейса.
+
+### Лицензия
+
+`LICENSE.md` и README указывают исходный проект `Nikolay-Shirokov/cc-1c-skills` (MIT); уведомление
+об авторских правах сохранено.
+
+### Правила
+
+`edt-form-xml-requirements.md`: имя события таблицы `OnEditEnd` (было `OnEndEditRow`).
+
+## 1.9.6 - 2026-09-02
+
+### Проверка выбора скила между соседями
+
+`run_skill_evals.py --routing <набор>` раскладывает несколько скилов сразу и определяет,
+чьи файлы агент открыл. Прежде раннер принимал один скил и проверить ВЫБОР не мог.
+
+Вердикт различает четыре исхода: верный выбор, чужой скил, пропуск, несколько скилов.
+Запись "активировался такой-то" их смешивает и систематически неверному выбору тоже
+удовлетворяет.
+
+Набор `tests/routing/config-skills.json` - четыре скила и пять запросов трех видов:
+прямой по теме скила, на границе с соседом, не по теме. Замер в три повтора: ложных
+срабатываний 0, пропусков 0, неверный выбор 0.
+
+Число повторов решает: на одном повторе составной запрос дал пропуск, на трех устойчиво
+показал открытие нескольких скилов сразу.
+
+### Возобновление прерванного захода
+
+Ключ `--resume`: сведенный результат кейса ложится на диск, следующий заход гонит только
+недостающее. Сохраненное не пересчитывается - повторный прогон дал бы другой ответ агента
+и смешал два замера в один.
+
+### Исполняемые кейсы еще трех скилов
+
+`1c-bsp-command`, `1c-bsp-registration` и `1c-query-optimization` переведены целиком.
+Всего переведено шесть скилов, 18 кейсов.
+
+Замерены четыре: `1c-bsp-api`, `1c-ssl-patterns`, `1c-config-router`,
+`1c-query-optimization`. Без замера остаются `1c-bsp-command` и `1c-bsp-registration`.
+
+Самопроверка чистой логики раннера выросла с 16 до 29 утверждений.
+
+Всего в наборе 115 скилов и 40 правил.
+
+## 1.9.5 - 2026-09-02
+
+### Исполняемые кейсы поведенческого прогона
+
+Кейсы `1c-config-router`, `composing-1c-queries` и `1c-platform-docs` переведены в
+исполняемый вид: у каждого положительное утверждение по существу запроса и запрещенные
+строки. Прежде из 245 кейсов набора машинными проверками были 8.
+
+Замер по одному повтору, исполнитель Codex:
+
+| Скил | без скила | со скилом |
+|---|---|---|
+| `1c-config-router` | 0 из 3 | 2 из 3 |
+| `composing-1c-queries` | 3 из 3 | 0 из 3 |
+| `1c-platform-docs` | 3 из 3 | 0 из 3 |
+
+У двух скилов из трех модель отвечает верно без скила и не открывает его, когда он
+доступен. Эти шесть кейсов о скилах ничего не говорят: вопросы для них слишком просты.
+Кейсы маршрутизатора вклад скила различают.
+
+Порядок работы и формат кейса - `tools/README-evals.md`.
+
+Всего в наборе 115 скилов и 40 правил.
+
+## 1.9.4 - 2026-09-02
+
+### Дополнения командной панели динамического списка
+
+Три дополнения таблицы - строка поиска, состояние просмотра, управление поиском - теперь
+задаются в DSL формы. Прежде ключи `additions` и `commandBar` у таблицы принимались и
+результата не давали.
+
+**Штатное дополнение** настраивается ключом `additions` у таблицы: без настройки
+компилятор выдает пустой тег, платформа дополняет его сама; отличия от умолчания пишутся
+целиком.
+
+**Объявленное дополнение** - отдельный элемент командной панели со своим именем, задается
+тип-ключом `searchString`, `viewStatus` или `searchControl` внутри `commandBar`. Источник
+по умолчанию - родительская таблица.
+
+Замер на платформе 8.3.27.2214: у каждого вида свое значение типа источника
+(`SearchStringRepresentation`, `ViewStatusRepresentation`, `SearchControl`); порядок
+внутри дополнения - источник, свойства, контекстное меню, расширенная подсказка;
+объявленное дополнение НЕ заменяет штатное, платформа держит оба. Выход компилятора
+совпадает с выгрузкой платформы побайтово.
+
+Изменены оба порта `1c-form-compile`, `1c-form-decompile` и `1c-form-edit`. В редакторе
+источник обязателен: он дописывает элемент в готовую форму и родительскую таблицу по входу
+не знает.
+
+Декомпилятор разбирает обе позиции обратно. Прежде он помечал содержимое командной панели
+как неподдержанное DSL.
+
+Формат описан в `docs/form-dsl-spec.md`.
+
+### Точки входа навыков запускаются без исключений
+
+Отказ по отсутствующей необязательной зависимости называет пакет и способ установки
+вместо трассировки: python-порты `1c-web-*` (psutil) и два скрипта `skill-creator`
+(anthropic). Зависимости добавлены в таблицу README.
+
+`package_skill.py` и `run_eval.py` навыка `skill-creator` импортировали соседей по имени
+пакета, которое при прямом запуске не разрешается: корень навыка кладется в путь поиска.
+
+`package_skill.py` и `speaker_validator.py` навыка `transcribe` принимали первый аргумент
+как путь, поэтому запрос справки превращался в имя файла.
+
+Всего в наборе 115 скилов и 40 правил.
+
+## 1.9.3 - 2026-09-02
+
+### Схема компоновки с пустыми значениями параметров не читалась платформой
+
+`skd-compile` печатал обозначение пустого значения самим значением. Схема с такими
+параметрами отвергалась при разборе:
+
+```
+Исключение XDTO произошло при чтении файла - Template.xml
+```
+
+Замер на платформе 8.3.27.2214, по одному параметру: из пятнадцати схема ломалась на
+четырех.
+
+| Запись параметра | Что выдавал компилятор |
+|---|---|
+| `date = null` | `<value xsi:type="xs:dateTime">null</value>` |
+| `boolean = ` | `<value xsi:type="xs:boolean"></value>` |
+| `StandardPeriod = _` | `<v8:variant xsi:type="v8:StandardPeriodVariant">_</v8:variant>` |
+| составной тип со значением `null` | `<value xsi:type="xs:string"/>` при составном типе |
+
+Обозначения `_`, `null` и запись без правой части после знака равенства разворачиваются в
+ОТСУТСТВИЕ значения. Параметры, которые платформа принимала, показывают ту же форму:
+элемент значения у них не пишется вовсе.
+
+У составного типа пустому значению нельзя приписать строковый тип. Составной тип
+опознается по пробелу между типами: запятая для этого не годится, она стоит внутри
+квалификаторов одиночного типа - `string(10,fix)`, `Number(5,2)`.
+
+Оба порта исправлены, платформа принимает все пятнадцать параметров кейса.
+
+### Те же обозначения в редакторе схемы
+
+`skd-edit` печатал обозначение значением при добавлении параметра и заменял значение
+пустым текстом при изменении. Платформа такие схемы принимала, отказа здесь не было, но
+параметр получал значение из буквы обозначения вместо пустого.
+
+Оба порта приведены к тому же правилу: при добавлении элемент значения не пишется, при
+изменении - снимается вместе с отступом.
+
+Всего в наборе 115 скилов и 40 правил.
+
+## 1.9.2 - 2026-09-02
+
+### Объявлена зависимость python-портов веб-скилов
+
+Python-порты `1c-web-info`, `1c-web-publish`, `1c-web-stop` и `1c-web-unpublish`
+импортируют `psutil`, который в таблице зависимостей README не значился: запуск в
+окружении без него завершался `ModuleNotFoundError`. Строка в таблицу добавлена.
+
+### Веб-сервис с пакетами XDTO не загружался в базу
+
+`meta-compile` писал пакеты XDTO веб-сервиса плоской строкой через пробел:
+
+```
+<XDTOPackages>http://a http://b</XDTOPackages>
+```
+
+Платформа такую конфигурацию отвергает при загрузке:
+
+```
+Ошибка XDTO в файле - <сервис>.xml, при чтении свойства: XDTOPackages
+Чтение объекта типа: {http://v8.1c.ru/8.3/xcf/readable}ValueList
+```
+
+Свойство читается как список значений. Замер на платформе 8.3.27.2214: конфигурация с
+двумя пакетами загружается и выгружается в форме, где у каждого элемента списка есть
+представление, состояние отметки и значение с указанием типа. Оба порта компилятора
+переведены на эту форму; выход совпадает с выгрузкой платформы побайтово. Пустой список
+платформа пишет самозакрывающимся тегом - как и раньше.
+
+Значение теперь экранируется: адрес пространства имен с амперсандом давал неверный XML.
+
+### Круговой прогон пакетов XDTO
+
+`meta-decompile` читал это свойство как список и на плоской строке терял пакеты целиком.
+Расхождение между двумя половинами набора не ловилось ничем: снапшот компилятора
+закреплял его собственный выход, а декомпилятор на этом снапшоте не прогонялся.
+
+Добавлен кейс кругового прогона: список пакетов после сборки и разбора совпадает с
+исходным. Плюс кейсы на один пакет, на пустой список и на экранирование.
+
+Всего в наборе 115 скилов и 40 правил.
+
+## 1.9.1 - 2026-09-02
+
+### Скил шагов Vanessa не запускался
+
+Все три скрипта `1c-vanessa-steps` на Windows завершались с
+`AttributeError: '_io.BufferedWriter' object has no attribute 'reconfigure'` при входе в
+`main()`. Поток вывода настраивался дважды: на уровне модуля стояла подмена
+`sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')`, а в `main()`
+вызывался `reconfigure`, которого у писателя `codecs` нет. Подмена снята, настройка
+потока осталась одна.
+
+`validate.py` импортировал `step_parser`, `semantic_matcher` и `metrics_logger` одним
+блоком с перехватом. Модуля `metrics_logger` в наборе нет, поэтому перехват срабатывал
+всегда и выключал семантический разбор шага целиком. Журнал метрик удален вместе с ключом
+`--log-metrics`, остальные модули импортируются обычным образом.
+
+Расширенный отчет `--ai-enhanced` печатался через PyYAML, не объявленный ни в описании
+скила, ни в README: описание обещает работу на стандартной библиотеке. Отчет переведен на
+`json` из стандартной библиотеки и печатается без преамбулы и разделителей, поэтому
+разбирается целиком.
+
+`SKILL.md` заявлял Python 3.6+, тогда как модули скила используют `dataclasses` (3.7+), а
+`reconfigure` доступен с 3.7. Заявлена версия 3.8+, как в README набора.
+
+### Регресс-тесты скила шагов Vanessa
+
+Десять кейсов в трех каталогах: поиск (три формата вывода, отбор по категории,
+статистика), валидация (корректный сценарий, выдуманный шаг, структурная ошибка,
+расширенный отчет) и построение индексов.
+
+Индексатор проверяется на сокращенном реестре из десяти шагов и с обязательным
+`--output`: значение по умолчанию указывает внутрь скила, где каталога нет. Эталон для
+него не снимается - в метаданных индекса лежат время создания и путь к файлу, а порядок
+ключей индекса по ключевым словам зависит от обхода множества; сверяется содержимое
+файлов.
+
+### Гард настройки потоков и зависимостей
+
+`check-stream-setup.mjs` проверяет по всем скриптам навыков, что поток вывода не
+настраивается подменой через `codecs`, и что скил, обещающий работу на стандартной
+библиотеке, не импортирует PyYAML. Обе проверки статические: подмена потока дает отказ
+только на Windows, а отсутствующая зависимость - только на машине, где ее не установили.
+
+### Действия сборки на актуальной среде выполнения
+
+`actions/checkout` поднят до v5, `actions/setup-node` до v5, `actions/setup-python` до
+v6 - по полю `runs.using` в описании каждого действия это версии на Node 24. Прежние
+объявлены на Node 20, который выведен из обращения, и площадка подменяла им среду. Версии
+Node и Python, на которых выполняются тесты, не менялись.
+
+### Реестр шагов Vanessa доходит до набора для Cursor
+
+Конвертер переносит каталог `data` навыка. У скила шагов Vanessa там лежит реестр, без
+которого его скрипты отказывают на первом же запуске: в зеркале скил был нерабочим
+независимо от правок.
+
+Всего в наборе 115 скилов и 40 правил.
+
+## 1.9.0 - 2026-09-01
+
+### Прикладные сценарии БСП
+
+Скил `1c-ssl-patterns` переписан: 38 справочников закрывают все 70 тем главы применения
+документации Библиотеки стандартных подсистем. В каждом справочнике - модули механизма с
+контекстами выполнения, сценарии с сигнатурами и регионами, антипаттерны, различия между
+версиями 3.1.11 и 3.2.1 и команда проверки вызова. В `SKILL.md` - таблица маршрутизации от
+формулировки задачи к справочнику.
+
+Исправлено: в прежнем описании скила значился метод `ОбщегоНазначения.КопироватьРекурсивно`,
+в библиотеке он называется `СкопироватьРекурсивно`.
+
+Различия версий, зафиксированные в справочниках:
+
+- `ОбщегоНазначения.ВыполнитьМетодКонфигурации` в 3.1.11 процедура, в 3.2.1 функция.
+- `ОбновлениеИнформационнойБазыПереопределяемый.ПриЗаполненииОбъектовПланируемыхКУдалению`
+  есть в 3.1.11, в 3.2.1 отсутствует.
+- Модуль `ДополнительныеОтчетыИОбработкиРегламентныеЗаданияВМоделиСервиса` есть в 3.1.11,
+  в 3.2.1 отсутствует.
+- Обработки `УниверсальныйОбменДаннымиXML` в дистрибутиве 3.2.1 нет.
+- В 3.2.1 добавлен модуль `РаботаСФайламиВХранилищеДвоичныхДанныхСлужебный`.
+
+Имена модулей, расходящиеся с названием подсистемы: завершение работы пользователей -
+`СоединенияИБ`, профили безопасности - `РаботаВБезопасномРежиме`, валюты -
+`РаботаСКурсамиВалют`, банки - `РаботаСБанками`, работа в модели сервиса -
+`РаботаВМоделиСервисаБСП`.
+
+Правила `bsl-ssl.md` и `mcp-tool-priority.md` приведены к порядку: механизм берется из
+справочника `1c-ssl-patterns`, вызов проверяется командой `check` скила `1c-bsp-api`,
+`ssl_search` идет запасным путем, когда механизм по справочникам не определен.
+
+### Предупреждение об устаревшем методе
+
+`bsp-api.py check` печатает `ВНИМАНИЕ: устаревший, вместо него <метод>` для методов с
+полем `dep` в `bsp-api.jsonl`. Источник поля - раздел `deprecated` в `purposes.json`,
+проставляет его `tools/stamp_deprecated.py`; ключ `--check` сверяет справочник с разделом
+без записи. Код возврата `check` прежний: метод существует.
+
+### Сканер текстов по жанрам
+
+`humanize_scan.py` определяет жанр документа - `reference`, `prose` или `letter` - по пути и
+содержимому; ключ `--genre` задает жанр явно. Часть проверок отключается по жанру: в справочном
+тексте не проверяется плотность заголовков, в письме - технический регистр.
+
+Маскирование расширено: фронтматтер, таблицы и цитаты исключаются из проверки, слово в
+кавычках считается упоминанием, а не употреблением. На каталоге правил набора это оставляет
+чистыми 22 файла из 40 - прежде находки были во всех 40.
+
+Добавлены ключ `--json`, реестр публичных категорий `categories.json` и коды возврата:
+0 - находок нет, 1 - находки есть, 2 - файл не прочитан.
+
+### Линтер справочников API
+
+`tools/validate_api_reference.py` читает три раскладки выгрузки модулей:
+`CommonModule/<Имя>/CommonModule.obj.bsl`, `CommonModules/<Имя>/Ext/Module.bsl` и
+`CommonModules/<Имя>/Module.bsl`.
+
+- Ключ `--src` принимает несколько источников в форме `версия=путь`. Пометки `[3.1.11]` и
+  `[нет в 3.2.1]` сверяются с указанной поставкой.
+- Утверждение вида "модуля `X` не существует" отвергается, если модуль в поставке есть.
+- Вызов метода с полем `dep` отмечается кодом `DEPRECATED_CALL`.
+- Исправлено: вызов, записанный полной сигнатурой с `Экспорт`, не разбирался. На справочнике
+  из 30 упоминаний проверялись 19, отчет при этом показывал ноль ошибок.
+
+### Гарды
+
+Добавлены два:
+
+- `check-api-validator.mjs` - линтер справочников на синтетических источниках в трех
+  раскладках, с версиями и устаревшими вызовами.
+- `check-text-corpus.mjs` - двусторонний корпус сканера текстов и полнота реестра категорий.
+
+`check-all.mjs` печатает число пропущенных гардов: гард, которому нужен отсутствующий здесь
+инструмент, отмечается пропущенным, а не исчезает из счета. `tools/mutate_text_corpus.py`
+проверяет гард корпуса мутациями: каждая из шести правок должна быть поймана.
+
+### Прочие изменения
+
+- Интеграционный прогон, записывающий фикстуру в кэш, идет раньше тех, которые ее читают:
+  имена файлов давали обратный порядок, и на пустом кэше чтение отказывало.
+- Две записи `cfe-patch-method` в `known-gaps.json`: кейсы проходят на Windows с русской
+  локалью и падают в CI на английской, на именах методов с буквой е с точками.
+- Конвертер переносит `.gitattributes` и снимает поле `source` в манифесте корпуса: файлов
+  исходного набора здесь нет, и сверка копий давала предупреждение на каждом прогоне.
+- `README.md`: ссылка на файл лицензии ведет на `LICENSE.md`.
+
+Всего в наборе 115 скилов и 40 правил.
+
+## 1.8.1 - 2026-08-28
+
+Описание в `SKILL.md` навыков `1c-storage-ops`, `zup-hr-api-reference` и `humanize-ai-text`
+взято в кавычки: двоеточие и вложенная кавычка рвали разбор YAML, и навык не загружался.
+
+### Запрещенные символы в текстах набора
+
+Из документации и текстов скриптов убраны длинное и короткое тире, буква е с точками,
+кавычки-елочки и символ многоточия.
+
+Символ остается там, где он задает алфавит или значение: класс символов регулярного
+выражения, пара написаний в карте синонимов, шаблон подвала в `inspect_sample.py`,
+нормализация имен в `speaker_validator.py`, имена объектов в заданиях `evals` и реестр шагов
+Vanessa Automation.
+
+Список запрещенных символов в `rules/text-formatting.md`, проверка формата в
+`claude-md-bootstrap` и таблица замен в `humanize_scan.py` заданы кодовыми точками Unicode.
+
+### Вызов соседнего навыка
+
+`1c-cf-edit`, `1c-interface-edit`, `1c-meta-edit`, `1c-subsystem-edit` и `1c-xdto-edit`
+вызывают валидатор напрямую. `Invoke-Sibling` в `1c-xdto-edit` запускает соседа тем же
+интерпретатором: путь берется из `(Get-Process -Id $PID).Path`.
+
+### Прочие изменения
+
+- Снят скил `sync-fork`.
+- Конвертер в набор для Cursor берет описание навыка в двойные кавычки и заменяет вложенные
+  двойные одинарными.
+- `README.md`: пример дает 345 строк XML и 16 проверок валидатора; состояние прогона - 831
+  кейс и 0 отказов.
+
+Всего в наборе 115 скилов и 40 правил.
+
+## 1.8.0 - 2026-08-27
+
+Появился ключ `-AdditionalV8Arguments` (и `-AdditionalIbcmdArguments` для утилиты администрирования)
+у `1c-db-create`, `1c-db-run` и `1c-epf-build`. Список разделяется запятой: значение аргумента
+платформы само содержит пробелы. Постоянный набор задается ключами `v8args` и `ibcmdargs` в
+`.v8-project.json`; файл ищется вверх по дереву от целевого каталога. Аргументы вызова заменяют
+значение из настроек целиком, а пустое значение снимает их на один запуск. При сборке обработки без
+указанной базы аргументы доходят и до создания временной базы.
+
+### Вывод платформы доходит до пользователя
+
+Потоки процесса перехватываются в файлы и печатаются под заголовком `--- Вывод платформы ---`.
+Кодировка определяется по содержимому: платформа пишет в кодировке консоли (866 на русской Windows),
+утилита администрирования - в UTF-8.
+
+### Отказ вместо тихого продолжения
+
+- `1c-db-run` выдерживает контрольное окно после запуска и проверяет, что процесс жив. Платформа с
+  отвергнутыми параметрами завершается почти сразу, а навык сообщал о запуске всегда.
+- `1c-db-create` отказывается работать, когда выбран движок `ibcmd`, а переданы ключи платформы,
+  шаблон или регистрация в списке баз.
+- `1c-db-dump-xml`: первая выгрузка в пустой каталог идет полной. Инкрементальная сверяется с
+  `ConfigDumpInfo.xml`, которого при первой выгрузке нет, и платформа отказывала.
+- `1c-role-compile` проверяет описание роли целиком до первой записи и отказывается собирать роль с
+  неизвестным типом объекта, несуществующим правом, типом без прав в роли или чужим видом
+  вложенности. Раньше это были предупреждения: на диске оставалась роль с неполным набором прав,
+  уже упомянутая в `Configuration.xml`.
+
+### Диагностика ввода: отказ вместо предупреждения
+
+Навык, получивший заведомо неверный ввод, печатал предупреждение и продолжал работу. Код
+возврата оставался нулевым, вызывающий считал операцию выполненной, а на диск уходил файл,
+который платформа не примет.
+
+`1c-meta-edit` отклоняет правку, а не выполняет ее наполовину: опечатка в имени свойства
+(имя, отличающееся от существующего на одну-две буквы), правка свойства, которого в объекте
+нет, значение свойства-перечисления вне допустимого набора, реквизит с именем стандартного.
+Список стандартных имен ведется по типу объекта: `Тип` стандартен у плана видов характеристик
+и плана счетов, а у справочника это законное имя реквизита.
+
+`1c-meta-validate` получил четыре проверки: ссылка на объект метаданных, записанная именем
+типа (`CatalogRef.Валюты` вместо `Catalog.Валюты`); свойство, появившееся в более новой версии
+формата, чем штамп файла; длина номера строки вне диапазона 5..9; корневой тип, заданный
+текстом вместо структуры, и команда без группы. Проверка имен реквизитов знает русские формы
+стандартных имен и поднята с предупреждения до ошибки.
+
+`1c-skd-validate` проверяет типы и квалификаторы полей: имя встроенного типа без префикса
+схемы XML, числовой квалификатор рядом со строковым типом, неполный числовой квалификатор,
+знак числа вне набора, ссылочное значение, записанное подчеркиванием.
+
+`1c-skd-decompile` принимает `-TemplatePath` и `-OutputPath` - те же имена, что у остальных
+навыков по схемам компоновки и макетам. Прежние `-InputFile` и `-OutputFile` продолжают
+работать.
+
+### Права вложенных объектов по виду
+
+Компилятор и валидатор ролей считали, что у любого вложенного объекта права только `View` и `Edit`.
+У операции веб-сервиса и метода HTTP-сервиса это `Use`, у перерасчета регистра расчета - `Read` и
+`Update`. Карты видов вложенности и их прав общие для обоих навыков.
+
+Русские имена типов теперь принимаются в обоих написаниях - с точками над е и без них.
+
+### Состав объекта приведен к выгрузке платформы
+
+`1c-meta-compile` писал блок `<StandardAttributes>` в каждый объект. Платформа выгружает его,
+только когда у стандартного реквизита изменено хотя бы одно свойство, поэтому файл навыка
+расходился с выгрузкой Конфигуратора в первой же сверке. Теперь блок появляется лишь при
+заданном ключе `standardAttributes`.
+
+Исправлены значения по умолчанию у справочника: `QuickChoice` - `false`,
+`DataLockControlMode` - `Managed`, `CreateOnInput` - `Use`.
+
+Эталоны навыков, где объект создается подготовительным шагом, приведены к новому составу.
+
+### Свойства по версиям формата 2.18-2.21
+
+Свойства, появившиеся в форматах 2.18 и 2.20, пишутся по версии: `TypeReductionMode` у
+стандартных реквизитов и измерений регистра (с 2.18), `LineNumberLength` у табличной части
+(с 2.20; значение по умолчанию задает режим совместимости конфигурации - 5 до 8.3.27 и 9
+начиная с него). Настройки стандартных реквизитов из ключа `standardAttributes` теперь
+доходят до файла: раньше навык печатал набор по умолчанию.
+
+Приведены к выгрузке платформы: значение заполнения ресурса регистра сведений по типу,
+основной отбор по периоду, ссылочные типы измерений через объявленный в шапке префикс,
+стандартные команды обработки.
+
+Шапка метаданных в формате 2.21 несет пространство имен палитры между `lf` и `style`, а у
+значения перечисления появляется `<Color>`. Версия читается из `Configuration.xml` вверх по
+дереву; при 2.17-2.20 состав шапки прежний.
+
+Поддержку получили `1c-meta-compile`, `1c-role-compile`, `1c-subsystem-compile`,
+`1c-subsystem-edit`, `1c-form-compile`, `1c-template-add` и `1c-mxl-compile`. Макетам версия
+формата раньше была неизвестна вовсе - теперь `1c-mxl-compile` определяет ее так же, как
+остальные навыки.
+
+Заодно `1c-role-compile` пишет объявления пространств имен одной строкой и отступы табами -
+как платформа. Прежний столбик расходился с выгрузкой в первой же сверке.
+
+### Стандартные реквизиты в обзоре объекта
+
+`1c-meta-info` показывает блок стандартных реквизитов: тип и длину кода, длину наименования,
+владельца с его обязательностью и видом подчинения, родителя у иерархического объекта, дату и
+номер документа с периодичностью и способом нумерации. Краткий режим сообщает о подчиненности.
+Свойства иерархии и кода выводятся и у плана видов характеристик, а не только у справочника.
+
+### Форма приводится к выгрузке платформы
+
+Заданный заголовок формы выключает автоматический признаком `AutoTitle`. Автокомандная панель
+без настроек выгружается одним тегом, а не блоком со свойствами. Блок реквизитов есть всегда:
+у формы без реквизитов он пустой. Модуль формы приводится в соответствие описанию - заготовки
+процедур ставятся ровно под заданные события, лишнего обработчика в модуле не остается.
+
+### Перехватчик метода собирается по оригиналу
+
+`1c-cfe-patch-method` писал заготовку без параметров, ставил контекстную директиву всем модулям
+подряд и клал метод в новый регион поверх существующего. Платформа связывает перехватчик с
+оригиналом по имени и списку параметров, поэтому заготовка без параметров не связывалась.
+
+Сигнатура, тело и директива компиляции читаются из основной конфигурации по ключу `-ConfigPath`.
+Область выбирается по виду модуля: `ОбработчикиСобытийФормы` у формы, `ПрограммныйИнтерфейс` у
+общего модуля, `ОбработчикиСобытий` у остальных; если регион уже есть, метод дописывается в него.
+Условие препроцессора, охватывающее оригинал (`#Если Сервер Тогда`), переносится в расширение.
+Директива компиляции берется у оригинала: обработчик формы, объявленный на клиенте, на сервере не
+связывается. `ModulePath` принимается и как имя объекта, и как путь к файлу модуля.
+
+Добавлен вид перехвата `Instead` (`&Вместо`) с явным `ПродолжитьВызов`. `ModificationAndControl`
+копирует тело оригинала, а не комментарий-заглушку. Перехват функции видами `Before` и `After`
+отклоняется: перехватчик обязан вернуть значение, а эти виды его не возвращают.
+
+### Сверка перехватчиков с оригиналом
+
+Повторный вызов с тем же методом пересобирает копию из новой редакции оригинала и размещает
+правки по двустороннему якорю - соседним строкам сверху и снизу. Исходы различаются: `[АКТУАЛЕН]`
+(оригинал не менялся, файл не тронут), `[АКТУАЛИЗИРОВАН]` со счетчиком сохраненных правок,
+`[ПЕРЕНЕСЕНО В ОСНОВНУЮ]` (правка попала в конфигурацию и из расширения убрана),
+`[АКТУАЛИЗИРОВАН-ЧАСТИЧНО]` (якорь исчез, блок вынесен в конец тела с маркером
+`[РЕСИНК-КОНФЛИКТ]`). Комментарий разработчика рядом с поглощенным кодом в основную конфигурацию
+не переносится, и об этом сообщается отдельной строкой.
+
+Ключ `-Check` обходит все расширение и завершается ненулевым кодом при расхождении, ничего не
+записывая; `-Actualize` делает то же с записью.
+
+### Форма и ее реквизиты
+
+`1c-form-compile`: у обычного реквизита формы заголовок равен имени, у основного отсутствует;
+основной реквизит получает признак `SavedData`. Параметры выбора поля ввода (`choiceParameters`)
+пишутся в обеих формах записи - объектом `{name, value}` и строкой `"Имя=Значение"`; несколько
+значений выгружаются списком значений, отсутствующее значение - пустым тегом. Имя параметра
+экранируется: кавычка в атрибуте давала невалидный XML. Типы в порте на python сопоставляются без
+учета регистра, как в порте на PowerShell: `String` и `string` давали разный результат.
+
+Отклоняются: два элемента формы с одним именем, две команды с одним именем, группа дополнительных
+колонок без ключа `columns`. Раньше это молча давало форму, где второй элемент недоступен из кода.
+
+`1c-form-add` создает форму пустой - без обработчика создания в модуле и без ссылки на него в
+`Form.xml`. Платформа заводит новую форму именно такой, а заготовка обработчика попадала в
+модуль и оставалась там неиспользованной.
+
+### Формат 2.21 в шапках объектов
+
+Палитра цветов (`xmlns:pal`) объявляется в шапке начиная с формата 2.21 (8.5) и встает между `lf`
+и `style`. Объявление добавлено в `1c-form-compile`, `1c-form-add`, `1c-cfe-init`, `1c-cfe-borrow`,
+`1c-template-add`, `1c-epf-init` и `1c-erf-init`. Там же форма получает
+`UseInInterfaceCompatibilityMode`, конфигурация расширения - `Caption` и `ShortCaption`, а
+значение перечисления, добавляемое через `1c-meta-edit`, - `Color`.
+
+`1c-epf-init` и `1c-erf-init` приняли ключ `-FormatVersion`: версия пишется в шапку, значение вне
+проверенного диапазона 2.17-2.21 дает предупреждение, а нечисловое - отказ. Расширение наследует
+версию формата у базовой конфигурации, форма внешней обработки - у ее описания, а не у
+конфигурации, лежащей рядом. Пустой табличный макет выгружается одним тегом.
+
+### Проверки формы
+
+`1c-form-validate` считал автономную внешнюю обработку объектом конфигурации, если та лежала
+внутри каталога с `Configuration.xml`, и сообщал об ошибке типа `ExternalDataProcessorObject`.
+Теперь описание обработки распознается по собственному корню.
+
+Добавлены проверки: два элемента с одним именем, привязка `MultipleValueDataPath` без реквизита,
+префикс в значении типа, не объявленный в шапке формы, путь ссылки параметра выбора без
+объявленного реквизита. Пути, которые платформа записывает не именем реквизита (число, пара
+идентификаторов через двоеточие, `Items.<Таблица>.CurrentData`, `~Реквизит`), больше не дают
+ложных ошибок. Команда без объявленного действия понижена до предупреждения: действие
+назначается и в коде формы. Версия вне проверенного диапазона сообщается со стороной отклонения.
+
+### Предопределенные элементы и команды объекта
+
+`1c-meta-compile` принимал ключ `predefined` только как признак реквизита. Список
+предопределенных элементов, заданный в описании, никуда не выгружался, а платформа хранит его
+отдельным файлом `Ext/Predefined.xml`.
+
+Элемент задается объектом или краткой записью `"(код) Имя [описание]: Тип"`. Группы принимают
+вложенные элементы, план счетов - вид счета, порядок, признаки учета и субконто
+(`"ВидСубконто | Turnover, Признак"`), план видов расчета - признак базового периода действия.
+Числовой код помечается типом, строковый пишется как есть.
+
+Команды объекта (`commands`) выгружаются дочерними объектами и получают модуль команды.
+Группа обязательна и принимается по-русски (`"Панель навигации.Важное"`) или ссылкой на
+собственную группу (`"ГруппаКоманд.МояГруппа"`). Параметр команды вместе с секционной группой
+командного интерфейса отклоняется: платформа такое сочетание не принимает. Картинка задается
+именем или объектом с прозрачным пикселем.
+
+`1c-meta-compile` выгружает шаблоны URL и методы HTTP-сервиса с их собственными синонимом,
+комментарием и обработчиком; `ReuseSessions` принимает значение `Use`.
+
+### Комментарий, синоним и префикс типа
+
+Комментарий объекта из описания доходил до файла лишь у части видов объектов: остальные
+двадцать три эмиттера писали пустой тег, игнорируя заданное значение.
+
+Синоним по умолчанию понижал регистр всей строки, и аббревиатура в имени рассыпалась:
+`ТоварныйAPI` давал "Товарныйapi", `ИНН` - "Инн". Теперь регистр понижается только у одиночной
+заглавной буквы. Правило приведено к общему виду в `1c-meta-edit` и `1c-subsystem-compile`.
+
+Тип, скопированный из выгрузки вместе с префиксом (`cfg:СправочникСсылка.Склады`,
+`d5p1:`, `d4p1:`), принимается: префикс срезается. Схемные префиксы (`v8:`, `xs:`, `v8ui:`)
+остаются частью имени типа. Правило действует в `1c-form-compile`, `1c-form-edit`,
+`1c-meta-edit`, `1c-skd-compile`, `1c-skd-edit`.
+
+Порядок свойств плана счетов, плана видов характеристик и плана видов расчета приведен к
+выгрузке платформы.
+
+### Схема компоновки данных
+
+`1c-skd-compile` писал шапку схемы в несколько строк, а платформа пишет ее одной. Из-за этого
+все семнадцать проверок круговой сборки СКД расходились с образцом на первой же строке.
+
+Вложенный набор объединения выгружается тегом `item`, а не `dataSet`. Пустой блок отбора
+пишется одним тегом. Автополе выбора появляется и на верхнем уровне настроек, а не только в
+группе. Дополнительные свойства варианта (`additionalProperties`) выгружаются: имя идет в
+атрибут с экранированием, значение - в содержимое. Хвостового перевода строки после
+закрывающего тега больше нет.
+
+`1c-skd-decompile` пишет описание в том виде, в каком его удобно править: словарь идет по
+ключу на строку, а массив разворачивается только когда в нем есть объекты и элементов больше
+одного. Многострочный запрос выносится в отдельный файл рядом с описанием, а в описании
+остается ссылка вида `@<имя>.sql`.
+
+`1c-skd-edit`: предупреждения приведены к общему виду записи.
+
+### Правка пакетов XDTO работает
+
+`1c-xdto-edit` собирал путь к соседним навыкам без префикса `1c-` в имени каталога и отвечал
+"навык неработоспособен" на всех операциях, идущих через разборку и сборку пакета: добавление
+типа, свойства, значения перечисления, импорта, пакетное удаление свойств, замена объявления,
+смена пространства имен.
+
+### Макет: строка массивом, области координатами, наборы колонок
+
+`1c-mxl-compile` принимает строку в виде массива - элемент на колонку слева направо. Строка
+задает текст, `{Имя}` - параметр, `null` пропускает колонку, `>` расширяет ячейку слева,
+`|` расширяет ячейку сверху, объект без `col` берет номер колонки из позиции. Раньше массив
+доходил до вывода как строка без ячеек и давал пустую строку в макете.
+
+Область без `name` выгружает свои строки, не создавая именованную область. Строки вне областей
+задаются полем `rows` верхнего уровня.
+
+Появились именованные области по координатам - `namedAreas[]` с осями `rows` и `cols`, 1-based.
+Вид области выводится из осей: `Rows`, `Columns` или `Rectangle`.
+
+Появились наборы колонок - `columnSets`. Область или строка ссылается на набор по имени полем
+`columnSet`, набор выгружается отдельным блоком `columns` со своим идентификатором, строки
+получают `columnsID`. Идентификатор берется из поля `id` или выводится из имени как UUID
+версии 3.
+
+`text` и `template` ячейки принимают объект "язык: текст". Строка идет на языки из
+`textLanguages`. Состав языков макета задается полем `languages`, текущий и основной -
+`currentLanguage` и `defaultLanguage`; `1c-mxl-decompile` их сохраняет.
+
+### Макет приведен к выгрузке платформы
+
+Сверка с макетами, выгруженными платформой, дала восемь расхождений:
+
+- Индекс колонки `<i>` пишется только при разрыве нумерации, а не у каждой ячейки.
+- Формат ширины по умолчанию идет последним в палитре форматов.
+- Шрифт по умолчанию не объявляется, если его не задали: платформа пишет шрифт только там, где
+  он выбран.
+- Ячейка без единого свойства оформления получает формат 0, а не свой пустой.
+- Размер шрифта принимает дробное значение.
+- Статический текст не получает тип заполнения `Text` - платформа его не выгружает.
+- Выравнивание задается коротким ключом (`align`) и полным именем свойства
+  (`horizontalAlignment`), добавлены `justify` и `bottom`.
+- Каталог назначения создается, если его нет.
+
+`1c-mxl-decompile`: ячейка с нулевым форматом не получает стиль.
+
+### Структура и поля схемы компоновки
+
+- Группировка записывается ключом `groupFields`. Отбор и порядок оси таблицы пишутся всегда,
+  включая пустые: отсутствие элемента в файле и автоэлемент - разные вещи, и обратная сборка
+  обязана их различать. Порядок осей в описании тот же, что в файле.
+- Папка выборки разбирается и собирается тем же кодом, что и сама выборка: внутри нее такие же
+  элементы, включая вложенные папки и поля с заголовком. Раньше вложенная папка превращалась в
+  строку, а заголовок поля терялся.
+- Появился вложенный объект структуры: `{ "type": "nestedObject", "objectID": ..., "settings":
+  { "selection": ... } }`.
+- Появилась сортировка поля по выражению: `orderExpression` с полями `expression`, `orderType`,
+  `autoOrder`.
+- Признак роли может нести значение: в шорткате `@balance balanceGroupName=Сумма
+  balanceType=OpeningBalance`. Раньше такие признаки уходили в `_todo`.
+- Имя поля в объектной форме пишется ключом `field`.
+- Поле-папка набора данных: `{ "field": ..., "folder": true, "title": ... }`. Раньше папка
+  уходила в `_todo` и терялась.
+- Автоматическая группировка `Auto` в структуре пишется своим элементом, а не полем с именем
+  `Auto`.
+- Составной тип поля - список: у каждого типа свой элемент. Раньше типы склеивались в один
+  элемент через пробел, и платформа такой макет не читала.
+- Тип поля принимает фиксированную длину строки (`string(50,fix)`) и число без дробной части
+  (`decimal(10)`, `decimal(10,nonneg)`). Раньше такая запись доходила до файла как есть.
+- Числовое свойство оформления (ширина, высота, отступ) пишется числом, а не строкой.
+- Составной тип разбирается поэлементно: каждый его тип читается тем же кодом, что и одиночный,
+  вместе со своими квалификаторами. Раньше у примитивов срезался только префикс, и `xs:decimal`
+  возвращался как `decimal` без квалификаторов.
+- Текстовое свойство оформления (`Формат`, `Текст`, `Заголовок`) проверяется до числового: `"0"`
+  в формате - текст, а не число.
+- Значение оформления бывает многоязычным: объект "язык: текст" вместо строки. Оформление поля
+  пишется тем же кодом, что и условное, и выравнивание получает свой тип значения.
+- Многоязычный текст при разборе возвращается объектом "язык: текст". Раньше сохранялся только
+  русский, а остальные языки уходили в `_todo`.
+- В элементе условного оформления пишется отбор, в том числе пустой: без него платформа элемент
+  не читает.
+
+### Обзор схемы компоновки
+
+- Полный режим больше не обрывается на схеме без запроса: набор данных бывает только объектным, и
+  это не повод прекращать обзор.
+- Появился ключ `-Raw` у режима `query`: текст запроса без заголовков и разбивки на пакеты.
+- `-OutFile` принимается абсолютным, файл заканчивается переводом строки.
+
+### Раннер тестов
+
+`--update-snapshots` на python-порте записывает XML-эталон с исходным форматированием.
+Замена последовательности пробелов между тегами одним применяется только при сравнении.
+
+### Макеты области в схеме компоновки
+
+- Оформление ячейки выгружается на том же уровне, что и содержимое рядом с ним. Раньше блок
+  `appearance` был на уровень выше.
+- Появился стиль `none`: у ячейки не задается ничего, кроме ширины. Шрифт пишется только тогда,
+  когда он задан.
+- Ячейка задается объектом `{ "value": ..., "style": ... }` со своим стилем, отличным от стиля
+  макета.
+- `1c-skd-decompile` распознает стиль сверкой всего оформления ячейки с пресетами - встроенными и
+  пользовательскими из `skd-styles.json`. Раньше сверялись четыре признака, и свой стиль не
+  распознавался. Стиль макета пишется всегда, ширина колонки - строкой.
+- Описание разворачивается по ширине: контейнер идет одной строкой, пока помещается в 400
+  знаков, и разворачивается, когда перестает. Раньше правило было структурным, и короткие
+  описания печатались деревом.
+- Обратная косая черта в описании экранируется. Без этого макет с литеральным маркером
+  объединения давал недопустимый JSON.
+- Объединенная ячейка несет свое оформление: раньше ей всегда доставался стиль макета.
+- Пресеты стилей ищутся при разборе там же, где их ищет сборка, включая подъем по дереву к
+  `presets/skills/skd`.
+
+### Модель форматов макета
+
+Все восемь макетов, выгруженных платформой, собираются обратно побайтно. Для этого модель
+форматов дополнена тем, что в ней отсутствовало:
+
+- Шрифт задается ссылкой на элемент стиля или системный шрифт: `{ "ref": "style:SmallTextFont",
+  "kind": "StyleItem" }`. Объявление префикса идет полем `namespace`.
+- Формат без шрифта остается без шрифта. Раньше сборка подставляла первый шрифт палитры каждой
+  ячейке, у которой шрифта не было.
+- Цвет текста: свойство стиля `textColor`.
+- Скрытая строка: свойство строки `hidden`.
+- Собственный стиль строки: свойство строки `style`. В отличие от `rowStyle` он не заполняет
+  пустые колонки, а задает формат самой строки.
+- Рамка со всех сторон одной линией выгружается одним тегом `border`, а не четырьмя.
+
+### Обратная сборка макета возвращает то же описание
+
+`1c-mxl-decompile` терял при разборе все, что не укладывалось в старую модель, и обратная сборка
+молча меняла макет:
+
+- Строки вне именованных областей выгружаются отрезками в исходном порядке; раньше сохранялись
+  только строки внутри областей.
+- Именованные области видов `Columns` и `Rectangle` выгружаются в `namedAreas`.
+- Наборы колонок выгружаются в `columnSets`, строки получают ссылку `columnSet`.
+- Состав языков сохраняется, если он отличается от одного русского; текст ячейки остается объектом
+  "язык: текст", пока его состав языков не совпадает с общим.
+- Дробный размер шрифта читается; раньше целочисленный разбор на нем падал.
+- Выравнивания `Justify` и `Bottom` сохраняются.
+- Строка, у которой все ячейки простые, выгружается массивом значений по колонкам.
+- Описание пишется компактно там, где это не мешает читать. Общий блок вывода теперь один на два
+  навыка (`1c-skd-decompile`, `1c-mxl-decompile`) и проверяется гардом переносимых блоков.
+- `-OutputPath` принимается абсолютным: путь больше не приклеивается к текущему каталогу.
+- Стиль, на который ссылается только строка, из описания не вычеркивается. Раньше отбор
+  неиспользованных стилей смотрел на `rowStyle` и стили ячеек, а `style` строки пропускал.
+- Формат строки без ячеек сохраняется: высота, скрытие и стиль строки от отсутствия содержимого
+  не пропадают.
+- Стиль, у которого из свойств только цвет текста, получает свое имя вместо `default` - иначе
+  сборка применяла к ячейке стиль строки и цвет терялся.
+- Объявление префикса входит в ключ сравнения шрифтов: два шрифта с одинаковой ссылкой, но разными
+  пространствами имен больше не считаются одним.
+
+Ширина строки под набором колонок берется из набора: раньше колонки проверялись по раскладке
+документа, и строка на две колонки в наборе отвергалась на однокололоночном документе. Координаты
+`namedAreas` проверяются на 1-based и возрастание.
+
+### Отказ доходит до вызывающего
+
+- `1c-support-state` печатал отказы в стандартный вывод; вызывающий, проверяющий поток ошибок, их
+  не видел.
+- `1c-cf-edit` сохраняет концы строк правимого файла: XML-разбор нормализует CRLF в LF при чтении,
+  и файл в CRLF после правки становился смешанным.
+
+### Концы строк правки берутся из правимого файла
+
+`1c-meta-edit`, `1c-subsystem-edit`, `1c-meta-compile` и `1c-role-compile` записывали результат
+правки в CRLF независимо от того, чем был файл. Файл в LF после правки становился CRLF целиком
+либо смешанным - CRLF только во вставленных строках. Теперь концы строк берутся у файла, который
+правится; создаваемый файл по-прежнему пишется в CRLF. `1c-cf-edit` нормализует результат в обе
+стороны: правка LF-файла больше не оставляет CRLF во вставке.
+
+`1c-role-compile` регистрирует первую роль в `Configuration.xml` с отступом закрывающего тега
+`</ChildObjects>` плюс один уровень. Прежняя запись добавляла три табуляции к уже существующему
+отступу строки и давала пять. Отступ следующих ролей берется у последнего элемента `<Role>`.
+
+### Базовая структурная проверка объекта
+
+`1c-meta-validate` отвечал `Unrecognized metadata type` на параметр сеанса, роль, подсистему,
+общую форму и еще восемнадцать типов - своего набора проверок у них нет. Теперь такой объект
+проходит базовую проверку: корень `MetaDataObject`, uuid на элементе типа, имя в `Properties`.
+Путь без расширения (`SessionParameters/ТекущийПользователь`) дополняется до файла `.xml`: своего
+каталога у таких объектов нет.
+
+### Опустевший контейнер сворачивается
+
+`1c-template-remove` оставлял `<ChildObjects></ChildObjects>` после удаления последнего макета.
+Платформа пишет такой контейнер одиночным тегом; в PowerShell-порте внутри оставался еще и
+перевод строки с отступом.
+
+### Дубль имени элемента формы
+
+`1c-form-edit` печатал предупреждение и добавлял элемент с уже занятым именем - в форме
+оказывалось два одинаковых, и платформа ее не принимала. Теперь это отказ.
+
+### Имя реквизита проверяется по типу объекта
+
+`1c-meta-compile` печатал предупреждение и продолжал сборку, когда имя реквизита совпадало со
+стандартным. Теперь это отказ, а набор имен берется по типу объекта и совпадает с составом
+стандартных реквизитов, который навык выпускает: `Тип` стандартен у плана видов характеристик и
+плана счетов, `Родитель` - у плана счетов, а у обработки нет ни `Ссылки`, ни `Предопределенного`.
+Общего для всех типов списка больше нет: он отвергал законные имена. У табличной части
+проверяется только номер строки. Тот же набор у `1c-meta-edit`.
+
+### Тип метаданных Bot
+
+`Bot` (`Bots/`) добавлен в таблицу порядка `ChildObjects` спецификации и в карты типов навыков
+`1c-cf-edit`, `1c-cf-info`, `1c-cf-validate`, `1c-config-index`, `1c-cfe-borrow`, `1c-cfe-diff`,
+`1c-cfe-validate`, `1c-meta-remove`. Регистрация бота через `add-childObject` проходит, обзор
+конфигурации считает боты отдельной строкой, валидация не отвергает элемент как неизвестный тип.
+
+### Начальная страница и панели интерфейса
+
+У `1c-cf-edit` две операции.
+
+`set-home-page` записывает `Ext/HomePageWorkArea.xml`: шаблон рабочей области, левая и правая
+колонки. Элемент колонки - строка со ссылкой на форму либо объект с ключами `form`, `height`,
+`visibility`, `roles`. Высота по умолчанию 10, общая видимость `true`, имя роли принимается и без
+префикса `Role.`. Ссылка на форму принимается в краткой записи (`Справочник.Товары.ФормаСписка`) и
+с русским именем типа - в файл идет канонический вид `Catalog.Товары.Form.ФормаСписка`.
+
+`set-panels` перестраивает раскладку в `Ext/ClientApplicationInterface.xml` по зонам `top`, `left`,
+`right`, `bottom`. Элемент зоны - имя панели (`sections`, `favorites`, `history`, `open`,
+`functions`) либо `{ "group": [имена] }` для стека панелей в одной зоне. Панель опознается по
+позиции в списке `panelDef`: имени панели в файле нет. Список `panelDef` не меняется.
+
+### Правка структуры схемы компоновки
+
+У `1c-skd-edit` операция `modify-structure`: группировка элемента структуры задается заново, а
+отбор, порядок и оформление этого элемента остаются как были. Значение - шорткат структуры с
+обязательным `@name`, например `Валюта @name=ДанныеОтчета`.
+
+### Фикстуры концов строк в тестах
+
+`.gitattributes` закрепляет концы строк фикстур `tests/skills/cases/*/fixtures/lf-*` и `crlf-*`:
+`lf-*` выдаются в рабочую копию с LF, `crlf-*` - с CRLF, независимо от `core.autocrlf`.
+
+### Составной тип и ссылочный тип без имени объекта
+
+Составной тип платформа пишет блоками: сперва все типы, затем наборы типов, затем квалификаторы
+по одному на вид - числовой, строковый, дата. `1c-meta-compile` писал парами тип-квалификатор, и
+файл расходился с выгрузкой на каждом составном типе.
+
+Ссылочный тип без имени объекта (`CatalogRef`, `DocumentRef`) записывается элементом
+`<v8:TypeSet>cfg:CatalogRef</v8:TypeSet>`: это набор типов, а не тип. Прежняя запись
+`<v8:Type>CatalogRef</v8:Type>` не разрешалась ни одним пространством имен.
+
+### Планы видов характеристик, счетов и видов расчета
+
+- Тип значения плана видов характеристик задается ключом `valueType` наравне с `valueTypes`.
+  Раньше `valueType` игнорировался, и объект получал состав типов по умолчанию.
+- Значения по умолчанию приведены к выгрузке. План видов характеристик: `DescriptionLength` 100,
+  `CheckUnique` true, `CodeSeries` `WholeCharacteristicKind`, `QuickChoice` false, `CreateOnInput`
+  `DontUse`. План счетов: `CheckUnique` true, `DefaultPresentation` `AsCode`, `OrderLength` 9,
+  `QuickChoice` false, `CreateOnInput` `DontUse`. План видов расчета: `QuickChoice` false,
+  `CreateOnInput` `DontUse`.
+- Порядок свойств плана счетов выровнен по выгрузке: `BasedOn` перед видами субконто,
+  `Characteristics` перед стандартными табличными частями, `CreateOnInput` и `ChoiceHistoryOnInput`
+  сразу за режимом получения данных выбора, представления объекта в конце.
+- Реквизиты планов получили `FillFromFillingValue`, `FillValue` и `DataHistory` - платформа пишет
+  их так же, как у справочника.
+- Признак учета и признак учета субконто принимаются объектом: ключи `synonym`, `tooltip`,
+  `fillValue`. Раньше от объекта бралось только имя. Состав свойств признака дополнен до выгрузки.
+- Стандартные табличные части плана видов расчета (ведущие, вытесняющие и базовые виды) пишутся
+  вместе с заголовком и обязательным видом расчета. У плана счетов заголовок появился у видов
+  субконто.
+- Пустой язык многоязычного текста пишется одиночным тегом.
+
+### Ввод по строке ссылается на существующие реквизиты
+
+`1c-meta-compile` записывал в `InputByString` наименование и код независимо от их длины. Объект
+с `descriptionLength: 0` получал ссылку на несуществующий стандартный реквизит. Реквизит нулевой
+длины в список не попадает, пустой список пишется одиночным тегом.
+
+### Стандартные реквизиты в обзоре и разборе
+
+`1c-meta-info` показывает тип значения плана видов характеристик: составной сворачивается в
+`Составной (N)` со ссылкой на разбор, одиночный печатается как есть. Ключ `-Name` разбирает и
+стандартный реквизит - `Владелец`, `ТипЗначения`, `Родитель`: типы по одному в строке и свойства.
+Раньше на такое имя навык отвечал `not found`.
+
+### Признак сохраняемых данных
+
+`1c-form-compile` записывал `<SavedData>true</SavedData>` у каждого основного реквизита, а
+`1c-form-add` - у формы любого объекта. Теперь: в `1c-form-compile` признак пишется только по
+явному ключу `savedData: true`, в `1c-form-add` - только у объектов, которые платформа хранит в
+базе. У обработки, отчета и внешних объектов такого хранения нет.
+
+### Повторная регистрация формы
+
+`1c-form-add` добавлял второй элемент `<Form>` в `ChildObjects`, если форму уже зарегистрировал
+`1c-form-compile`. Теперь навык сообщает `Already registered` и файл не меняет.
+
+### Удаление формы очищает ссылки
+
+`1c-form-remove` очищал только `DefaultForm`, а ссылка на удаленную форму живет в любом свойстве
+`Default*Form` и `Auxiliary*Form`: у справочника это `DefaultObjectForm`. Опустевший контейнер
+`ChildObjects` сворачивается в одиночный тег.
+
+### Проверка после сборки идет тем же портом
+
+`1c-subsystem-compile` после сборки вызывает `1c-subsystem-validate` тем же портом, что и
+сборка. Путь к соседнему навыку ищется с префиксом каталога `1c-`; тем же путем находят
+валидатор `1c-cf-edit`, `1c-interface-edit`, `1c-meta-edit` и `1c-subsystem-edit`.
+
+### Черновой JSON формы
+
+`1c-form-decompile` перешел на общий блок чернового JSON: контейнер идет одной строкой, пока
+помещается в ширину. Признак автозаголовка рядом с заданным заголовком в описание не пишется -
+сборка вернет тот же файл и без него. Хвостового перевода строки в файле описания нет.
+
+### План видов расчета
+
+Стандартные реквизиты регистра расчета приведены к выгрузке: одиннадцать имен в порядке платформы
+вместо шести. План видов расчета получил длины кода 5 и наименования 100 по умолчанию.
+
+### Параметры ввода поля схемы компоновки
+
+`1c-skd-compile` записывает параметры ввода поля набора данных: параметры выбора
+(`choiceParameters`), связи параметров выбора (`choiceParameterLinks`) и простое типизированное
+значение (`value` с необязательным `use`). Блок идет после типа значения, признак использования -
+перед именем параметра. `1c-skd-decompile` разбирает их обратно; поле с параметрами ввода
+записывается объектом, а не шорткатом.
+
+### Регистрация подсистемы
+
+`1c-subsystem-compile` в python-порте писал `<Subsystem>` с пятью табуляциями: три добавлялись к
+уже существующему отступу строки. Отступ берется у самого контейнера.
+
+### Служебные объекты расширения в обзоре
+
+`1c-cfe-diff` называл собственный XDTO-пакет, веб-сервис, HTTP-сервис и WS-ссылку расширения
+неизвестным типом и не показывал их в обзоре.
+
+### Раздел формы, созданный правкой
+
+`1c-form-edit` создавал недостающий раздел формы (`ChildItems`, `Attributes`, `Commands`) без
+отступа: закрывающий тег соседа склеивался с открывающим тегом нового раздела, а раздел в конце
+формы вставал в нулевую колонку.
+
+### Повторное заимствование объекта
+
+`1c-cfe-borrow` при повторном вызове дописывал в объект расширения второй экземпляр каждого
+реквизита и табличной части и заново вставлял свойства объекта - в том числе внутрь блока
+`Properties` уже заимствованных реквизитов. Теперь свойства пишутся только в собственный блок
+объекта и только те, которых там нет, а реквизит и табличная часть с уже занятым именем
+пропускаются. UUID формы расширения и модуль формы при повторе сохраняются.
+
+### Основной реквизит заимствованной формы
+
+`1c-cfe-borrow` переносит в оболочку расширения блоки `UseAlways` и `Columns` основного
+реквизита исходной формы и заимствует то, что названо только там: табличную часть из
+`AdditionalColumns` и поле из `UseAlways`. `1c-form-compile` записывает их по ключам `useAlways` и
+`additionalColumns`: имя поля без точки достраивается именем реквизита, знак `~` остается
+впереди, колонка с `useAlways: true` попадает в тот же список; пустой список дополнительных
+колонок дает `<AdditionalColumns table="..."/>`.
+
+### Оболочки контейнерных типов
+
+`1c-cfe-borrow` пишет `<ChildObjects/>` отчету, обработке, журналу документов, последовательности,
+критерию отбора, хранилищу настроек, HTTP-сервису и веб-сервису. Порядок `GeneratedType` у
+критерия отбора и последовательности приведен к выгрузке: `Manager`, `List` и `Record`,
+`Manager`, `RecordSet`.
+
+### Проверка расширения против конфигурации
+
+У `1c-cfe-validate` появился ключ `-ConfigPath`. С ним пути к данным заимствованной формы
+сверяются с основной конфигурацией: реквизит или табличная часть, которых у объекта нет,
+и колонка, которой нет в табличной части, дают ошибку с полным путем. Стандартные реквизиты
+всех поддержанных типов из проверки исключены. Отдельно проверяется,
+что табличная часть из `AdditionalColumns` заимствована в расширение.
+
+### Журнал документов и веб-сервис
+
+`1c-meta-compile` пишет `<IncludeHelpInContents>` журналу документов и `<DescriptorFileName>`
+веб-сервису. Имя файла описания берется из ключа `descriptorFileName`, по умолчанию
+`<Имя>.1cws`.
+
+### Параметры схемы компоновки
+
+`1c-skd-compile` пишет `<useRestriction>` у каждого параметра, а не только когда ограничение
+включено. Параметр без значения получает пустой типизированный элемент: ссылочный тип и тип
+без указания дают `xsi:nil`, строка - пустой `<value xsi:type="xs:string"/>`; параметр со
+списком значений элемента значения не получает. При `@autoDates` границы периода не
+записываются - их считает сам вариант периода, - а производные `НачалоПериода` и
+`КонецПериода` описываются датой со временем. Автоматический пункт порядка (`Auto`) доходит до
+варианта настроек. Кавычка в содержимом элемента больше не экранируется: `<expression>""`
+вместо `&quot;&quot;`; в значении атрибута экранирование сохранено.
+
+### Разбор варианта настроек
+
+`1c-skd-decompile` записывает заголовок варианта ключом `title`, идентификатор
+пользовательской настройки оформления - признаком `auto`, а набор параметров данных,
+совпадающий с параметрами схемы, - строкой `auto`. Пустой типизированный элемент значения
+читается как отсутствие значения, а не как пустая строка.
+
+### Отступ при перестановке параметров
+
+`1c-skd-edit` в PowerShell-порте вставлял узел без отступа слева: после перестановки
+параметров закрывающий тег набора данных склеивался с открывающим тегом первого параметра.
+
+### Прочие изменения
+
+- Маскирование секретов дополнено ключами утилиты администрирования (`--token=`, `--password=`,
+  `--db-pwd=`).
+- Проверка переносимых блоков сверяет каждую копию в навыке, а не первую найденную. У навыка бывает
+  несколько скриптов одного порта, и правка эталона до второго молча не доезжала.
+- Зеркало набора для Cursor получило тесты, гарды согласованности и линтер.
+
+Всего в наборе 116 скилов и 40 правил.
+
+## 1.7.0 - 2026-08-24
+
+Скрипты, запускающие платформу пакетно, судили об успехе по коду возврата процесса. Платформа
+возвращает ноль и на проваленной операции: отказ она сообщает числом в отдельном файле результата,
+строкой журнала или тем, что артефакт просто не создан. Проверка, построенная на коде возврата,
+проходит всегда.
+
+Двенадцать скриптов в обоих портах переведены на вердикт из четырех сигналов: код возврата процесса,
+числовой результат `/DumpResult`, классификация журнала и постусловие операции. Строки лога
+сверяются сначала с формулировками об отсутствии проблем и только потом с диагностикой, поэтому
+`Проверка завершена. Ошибок не обнаружено` не читается как отказ.
+
+Заодно закрыта утечка: пароль печатался в командной строке восемью скриптами открытым текстом.
+Теперь маскируются пароль базы, код разблокировки и пароль хранилища.
+
+### Новый скил
+
+| Скил | Что делает |
+|------|------------|
+| `1c-storage-ops` | Хранилище конфигурации: отчет по версиям, захват и снятие захвата, обновление, помещение, выгрузка в CF, подключение и отключение базы. Список объектов проверяется до запуска платформы: без явного перечня полных имен платформа применяет операцию ко всей конфигурации |
+
+### Новые правила
+
+| Правило | О чем |
+|---------|-------|
+| `designer-batch-verdict.md` | Четыре сигнала вердикта, порядок классификации журнала, устаревший лог, маскирование пароля, ключи, которые не запускаются из автоматизации |
+| `1c-transactions-and-locks.md` | Неявные транзакции платформы, канонический шаблон явной транзакции, управляемые блокировки, порядок захвата против взаимных блокировок |
+| `edt-source-format.md` | Определение формата дерева до первого действия с метаданными и один владелец развертывания на прогон |
+| `1c-cyrillic-windows.md` | Кириллица в путях и аргументах Windows: симптомы и причины, кодировки файлов скриптов, молчаливый отказ при удалении |
+| `1c-ordinary-forms.md` | Обычные формы: отличия от управляемых, порядок операций с видимостью, что проверять при доработке |
+
+### Прочие изменения
+
+- `1c-db-update`: ключ `-CheckApplicability` проверяет применимость расширения к базе до обновления.
+  Перехватчик, ссылающийся на переименованный поставщиком метод, не виден ни синтаксическому
+  контролю, ни проверке XML - только этой проверке. Отказ останавливает обновление.
+- Ключ `-StrictLog` во всех скриптах, запускающих платформу: отказ в журнале поднимает код возврата
+  до 1, даже когда платформа вернула 0.
+- `tools/validate_ruleset.py`: проверяет frontmatter скилов и правил, разрешение перекрестных
+  ссылок и бюджет постоянно загружаемого контекста.
+- Регресс-тесты набора: рекурсивное удаление рабочих каталогов заменено на реализацию, работающую с
+  не-ASCII путями. Штатное средство Node 24 на таком пути молча не удаляет ничего, включая пустой
+  каталог, поэтому у пользователя с кириллицей в имени учетной записи уборка не срабатывала.
+- Справочник пакетных команд дополнен форматом файла со списком объектов для операций с хранилищем и
+  поведением отчета по версиям.
+- `edt-form-xml-requirements.md`: группа страниц и отдельная страница используют разные типы
+  расширенной информации, у страницы обязателен признак доступности.
+
+Всего в наборе 116 скилов и 40 правил.
+
+## 1.6.0 - 2026-08-20
+
+Агент, пишущий код на конфигурации с БСП, до сих пор брал имена модулей и методов библиотеки из
+собственной памяти. Имя, отсутствующее в библиотеке, по виду не отличается от настоящего:
+`ФайловаяСистемаКлиентСервер` и `Пользователи.СсылкаТекущегоПользователя` выглядят как имена БСП,
+но их нет. Проверить вызов было нечем.
+
+Добавлен справочник программного интерфейса БСП. Он отвечает, существует ли вызов, какая у метода
+сигнатура и в каком контексте метод доступен. Платформа, EDT и подключение к интернету не нужны.
+
+### Новый скил
+
+| Скил | Что делает |
+|---|---|
+| `1c-bsp-api` | Справочник программного интерфейса БСП: 2624 метода в 284 модулях, 71 подсистема, версии 3.1.11 и 3.2.1. Команды `check`, `find`, `show`, `module`, `modules`, `subsystem`, `overrides`, `stats` |
+
+Всего в наборе 115 скилов и 35 правил.
+
+### Что в справочнике есть
+
+Для каждого метода: модуль, вид (процедура или функция), полная сигнатура, имена и типы параметров,
+значения по умолчанию, тип возвращаемого значения, контексты выполнения, подсистема и механизм,
+версии БСП, в которых метод присутствует. Отдельно помечены 372 переопределяемых обработчика -
+методы, которые не вызывают, а реализуют.
+
+Назначение сформулировано для набора: строка у каждого из 284 модулей и у 440 методов базовых
+модулей и наиболее применяемых механизмов. Описательный текст документации не переносится.
+
+### Различия между версиями
+
+Каждая версия документации сведена со своим дистрибутивом библиотеки. Из 2247 методов,
+присутствующих в обеих версиях, у 37 изменилась сигнатура, у 55 - контексты выполнения, у 24 - тип
+возвращаемого значения.
+
+Часть изменений несовместима с прежним кодом. `ОбщегоНазначения.ВыполнитьМетодКонфигурации` в 3.1.11
+был процедурой, в 3.2.1 стал функцией с дополнительным параметром. У `ДобавитьПоказатель` новый
+параметр вставлен первым, а не последним, поэтому вызов по сигнатуре 3.2.1 на 3.1.11 передаст
+аргументы в другие параметры и не сообщит об этом. Справочник помечает такие методы и показывает
+прежнюю сигнатуру.
+
+### Ограничения
+
+Имя общего модуля документация БСП не называет: заголовки статьи указывают подсистему и механизм.
+Модуль восстанавливается тремя путями - секция "Расположение", префикс из примера вызова с
+подтверждением по дистрибутиву, совпадение контекстов выполнения. У каждой записи проставлен код
+источника, в выдаче ненадежное помечено. Таких методов 117 из 2624; еще у 37 модуль определить не
+удалось, потому что имя объявлено в нескольких модулях сразу.
+
+Справочник не покрывает HTTP-сервисы и веб-сервисы библиотеки, макеты, роли, права и состав
+метаданных подсистем.
+
+### Сборка справочника
+
+Готовый справочник входит в состав скила. Пересборка нужна только при переходе на новую версию БСП
+и требует двух источников: документации библиотеки и файла поставки `1Cv8.cf`. Оба лицензионные и в
+репозиторий не входят. Распаковка `1Cv8.cf` идет утилитой `v8unpack`, без платформы и Конфигуратора.
+
+### Исправлено
+
+**Разбор экспортных методов пропускал объявления после комментария с нечетным числом кавычек.**
+`1c-config-index` и `1c-bsl-validate` гасили строковые литералы и комментарии двумя отдельными
+проходами. Кавычка в комментарии открывала литерал, который продолжался до следующей кавычки в файле
+и поглощал попавший в него код. На библиотеке БСП так терялось 256 экспортных методов в 9 модулях,
+в модуле `СтандартныеПодсистемыСервер` - 109 объявлений подряд.
+
+Последствие для `1c-bsl-validate`: он берет список экспортных методов из индекса, поэтому корректный
+вызов помечался как ошибочный. Обратный порядок неверен так же - литерал `"TCP://"` обрубался
+вырезанием комментария. Теперь литералы и комментарии гасятся за один проход: что началось раньше,
+то и поглощает второе.
+
+### Правила
+
+Добавлен технический регистр для README, журнала изменений и описаний: разговорные глаголы и образы
+вместо действий и предметов исключаются на генерации, а не вычищаются потом.
+
+## 1.5.0 - 2026-08-19
+
+Валидаторы набора проверяли объект в отрыве от конфигурации. Реквизит с типом `CatalogRef.Контрагенты`
+проходил проверку при отсутствующем справочнике: чтобы увидеть разрыв, нужно знать состав остальной
+конфигурации, а валидатору он не был доступен. У `form-validate`, `subsystem-validate` и
+`skd-validate` обращений к соседним объектам не было ни одного.
+
+Добавлен индекс конфигурации. Семь проверок читают его и сверяют объект с остальной выгрузкой.
+Платформа, EDT и запущенная база не требуются.
+
+### Новые скилы
+
+| Скил | Что делает |
+|---|---|
+| `1c-config-index` | За один проход по выгрузке собирает JSON: объекты, реквизиты и стандартные реквизиты, табличные части, измерения и ресурсы регистров, экспортные методы общих модулей, состав `Configuration.xml`. Валидаторы получают его файлом через параметр `-IndexPath` |
+| `1c-query-validate` | Проверяет имена в тексте запроса: таблицы, табличные части, виртуальные таблицы регистров, поля по псевдонимам. Оба языка запроса |
+| `1c-bsl-validate` | Проверяет вызовы общих модулей: существует ли метод и объявлен ли он экспортным |
+
+Всего в наборе 114 скилов и 35 правил.
+
+### Новые проверки в существующих валидаторах
+
+Параметр `-IndexPath` у всех пяти необязательный: без него проверка не выполняется, и валидатор
+сообщает об этом явно.
+
+| Валидатор | Проверка | Что сверяется |
+|---|---|---|
+| `meta-validate` | 16 | Ссылочные типы реквизитов, измерений, ресурсов и реквизитов табличных частей |
+| `form-validate` | 13 | Пути данных против объекта-владельца. Владелец определяется по типу реквизита формы |
+| `subsystem-validate` | 14 | Состав подсистемы |
+| `role-validate` | 7 | Объекты прав, включая реквизиты, табличные части, команды, формы и макеты |
+| `skd-validate` | набор данных | Имена метаданных в запросе набора данных и в `objectName` |
+
+### Ограничения проверок
+
+Все новые проверки возвращают предупреждение, а не ошибку. Валидатор работает с одним объектом и не
+располагает признаком, полна ли выгрузка: файл мог быть взят из более крупной конфигурации.
+Расширение определяется по `ConfigurationExtensionPurpose`, заимствованный объект - по
+`ObjectBelonging = Adopted`; в этом случае формулировка мягче.
+
+Проверка имен не заменяет платформенную валидацию. Типы выражений, совместимость соединений в
+запросе, план выполнения, семантика BSL и директивы компиляции без платформы недоступны.
+
+### Прочее
+
+Скил `humanize-ai-text` разделен: механические замены вынесены в скрипт `scripts/humanize_scan.py`,
+справочники - в `references/`. SKILL.md сократился с 36 до 23 КБ.
+
+В каталог AI-EDT дописаны четыре возможности плагина: параметр `depth` у `call_hierarchy`,
+`branch_infobase`, `system_enum_values`, `format_cells`.
+
+## 1.4.1 - 2026-08-19
+
+Скил `ai-edt-tools` и правило выбора инструмента приведены в соответствие с релизами плагина AI-EDT
+0.2.26 - 0.2.28. Скрипты набора выпуск не затрагивает. Агент читает каталог скила до того, как выбрать
+инструмент, поэтому возможность, не внесенная в каталог, для него не существует: он выполняет ручную
+правку файлов, которую эти релизы плагина как раз отменяют.
+
+### Новые инструменты плагина, внесенные в каталог
+
+| Инструмент | С версии | Что делает |
+|---|---|---|
+| `infobase_admin operation=read_event_log` | 0.2.27 | Читает журнал регистрации файловой базы с отбором по `from`, `to`, `event`, `user`, `severity`. Платформа и запущенная база не нужны: журнал лежит файлами рядом с базой. Серверная база и однофайловый формат `1Cv8.lgd` отвечают именованным отказом |
+| `extend_object_type` | 0.2.26 | Добавляет тип объекту, заимствованному расширением, со состоянием `Extended`, не изменяя унаследованные |
+| `edit_metadata operation=help topic=parameters` | 0.2.28 | Отдает полные правила параметров, описание которых в схеме сокращено до одной строки |
+
+Расширено поведение `self_status`: с 0.2.26 он перечисляет все запущенные экземпляры AI-EDT с портами,
+рабочими областями и открытыми проектами. Каталог описывал его только как состояние сервера и очереди.
+На машине с несколькими запущенными EDT это единственный способ определить, какой экземпляр ответил.
+
+### Исправленные расхождения каталога с плагином
+
+**Правило исключало появившуюся возможность.** Формулировка "данных информационной базы у плагина нет"
+распространялась и на журнал регистрации. Теперь журнал файловой базы описан как исключение из этого
+правила: таблицы базы остаются недоступными, в остальном правило не изменилось.
+
+**Маршрут чтения журнала был неполным.** Каталог описывал только файловую базу через плагин. Добавлена
+вторая ветка: серверная база и формат `1Cv8.lgd` - через `1c-mcp-toolkit` по HTTP.
+
+**Не было условия применения у `set_object_type`.** На заимствованном объекте инструмент ничего не
+записывает и возвращает `applied:true`: состав типов такого объекта хранится в блоке расширения, а не
+в обычном свойстве. Теперь условие указано, и назван подходящий инструмент - `extend_object_type`.
+
+**Заимствование до 0.2.26 не дописывало связку с типовым объектом.** Расширение при этом ничего не
+переопределяло, а ошибок проекта не возникало. С 0.2.26 неполная связка возвращает отказ с причиной.
+Объект, заимствованный прежней сборкой, исправляется повторным вызовом `borrow_*`; править `.mdo`
+вручную не требуется.
+
+**`borrow_module` не был отмечен как требующий `moduleType`.** Параметр обязателен, если у объекта
+несколько модулей.
+
+## 1.4.0 - 2026-08-17
+
+Выпуск про две вещи: python-зеркало догнало мастер-версию целиком, и группа свойств реквизита
+перестала уезжать в файл текстом. Обе темы вскрыты одним приемом - сверкой того, что навык
+производит, с тем, что принимает живая платформа.
+
+### Зеркало сведено с мастером
+
+Порты на python отставали шире, чем описывал реестр известных разрывов: 206 зеленых кейсов при 278
+падениях вне реестра. Теперь 488 против 486 у PowerShell, регрессов ноль, и реестр действует для
+обоих рантаймов сразу. Два лишних кейса у зеркала - это разрывы самой PowerShell-версии, которые
+python проходит.
+
+Падения группировались не по навыкам, а по девяти причинам в общем коде, и одна правка закрывала
+десятки кейсов: массив и объект в строковом контексте, неупорядоченный словарь, поиск узла без
+пространства имен, сериализация узла внутри разобранного документа, текстовая запись поверх готовых
+концов строк, список аргументов в запуске процесса, перехват вывода платформы, потеря формы пустого
+узла при повторной правке.
+
+Правила приведения к строке в PowerShell не выводились по догадке, а замерены: одиночный объект в
+`"$x"` дает `@{k=v}`, массив склеивает через пробел результаты `ToString()`, и у разобранного из
+JSON объекта `ToString()` пуст.
+
+### Что сверка вскрыла в самой мастер-версии
+
+Эталоны закрепляли эти дефекты годами, а тесты их не видели, потому что сравнивали вывод сам с
+собой.
+
+**Многоязычный заголовок выводился одной строкой** вида `@{ru=...; en=...}` в пяти навыках - при
+том что тест назывался "Многоязычные title и presentation" и проходил.
+
+**Правка значения параметра СКД дописывала второй узел** вместо изменения первого: поиск по XPath
+без префикса не находит узел в пространстве имен схемы. Имя теста прямо требовало не дублировать.
+
+**Обозначения пустого значения `_` и `null` писались в XML буквально**, хотя кейс называется
+"установка пустого значения". Дефект был замаскирован тем самым дублированием.
+
+**Ячейка без указанной колонки попадала в позицию -1**, все в одну, вместо раскладки слева направо.
+**Имя картинки терялось** - в файл уходил весь объект. **Порядок свойств в двух местах был
+случайным**: словарь объявлен неупорядоченным, и эталон закрепил ту раскладку, которую хеш выдал в
+день записи.
+
+**Тест декомпиляции формы проходил по совпадению.** Имена флагов в конфигурации навыка не совпадали
+ни с одной версией, PowerShell выдавал ошибку привязки параметра, а ожидаемой подстрокой было
+"Form" - она в тексте той ошибки есть.
+
+### Структурные свойства реквизита
+
+Семь свойств - `Format`, `EditFormat`, `ToolTip`, `MinValue`, `MaxValue`, `FillValue`,
+`ChoiceParameterLinks`, а также `LinkByType` и `ChoiceParameters` - записывались текстом объекта.
+Результат навыка платформа не принимала вовсе: "Ошибка преобразования данных XML".
+
+Формы замерены на 8.5.1 круговым прогоном исходники - база - выгрузка. Три правила стоили
+нескольких заходов зонда:
+
+- дочерние элементы `LinkByType` обязаны нести префикс `xr`; без него платформа принимает файл и
+  молча выбрасывает содержимое;
+- путь к полю пишется полностью (`<Тип>.<Имя>.Attribute.<Имя>`), краткие формы отвергаются
+  сообщением о неверном пути;
+- `xsi:nil="true"` обязан быть пустым тегом, текст внутри валит загрузку.
+
+Приемка - не совпадение с эталоном, а загрузка платформой: цепочка справочник, форма, правка со
+всеми свойствами проходит без замечаний.
+
+### Прочее
+
+Раскладка ячеек без указания колонки проверяется на переполнение, на смешивание с явными колонками
+и на выход номера за диапазон - три закрытых разрыва. Правка отсутствующего свойства создает его, а
+не пропускает молча, и сообщает об этом: при опечатке в имени молчание скрыло бы появление
+несуществующего свойства.
+
+Реестр разрывов покрывает и интеграционные прогоны. Раньше одно известное падение делало код
+возврата ненулевым всегда, из-за чего в CI стоял фильтр, отсекавший интеграционные прогоны целиком.
+Фильтр снят, код возврата стал честным в обоих рантаймах.
+
+В раннере появился флаг `--keep-work`: без сохраненного рабочего каталога расхождение видно только
+по обрезанной строке отчета.
+
+## 1.3.0 - 2026-08-16
+
+Выпуск про python-порты. Документация требует, чтобы порты были функционально идентичны, а PS1 был
+мастер-версией. По факту `1c-meta-compile` на python знал 23 типа объектов против 37 и расходился
+поведением. Теперь типов 37 против 37, а вывод совпадает побайтово.
+
+Проверка сделана не эталонами, а сверкой портов: один и тот же вход через оба скрипта и сравнение
+файлов. Это оказалось сильнее эталона - эталон закрепляет вывод PS1 вместе с его ошибками. Так
+нашлись шесть дефектов, часть которых сидела в мастер-версии.
+
+**Строчное имя типа давало объект, который молча пропадал.** Проверка допустимых типов
+нечувствительна к регистру, поэтому `"type": "catalog"` ее проходил и уезжал в XML тегом
+`<catalog>`. Платформа на таком теге не ругается: загрузка завершается успешно, а объекта в базе
+просто нет.
+
+**Многоязычные значения превращались в мусор.** Синоним вида `{ "ru": ..., "en": ... }` приводился к
+строке до вывода, и вместо перевода в XML попадало `@{ru=...; en=...}`. Теперь на каждый язык
+выпускается свой элемент.
+
+**Табличная часть теряла объявленные колонки,** если задана объектом, а не списком: весь объект
+уходил в разбор одной колонки и получался безымянный реквизит. Теперь колонки берутся из
+`attributes`, а неизвестный ключ дает предупреждение вместо тихого игнорирования.
+
+**Порядок параметров веб-сервиса был случайным** - операции собирались в неупорядоченный словарь,
+хотя для операции порядок параметров это ее сигнатура.
+
+Отдельно в python-порте: регистрация объекта выбрасывала двенадцать объявлений пространств имен из
+шестнадцати в шапке `Configuration.xml`; строка рассыпалась посимвольно там, где значение могло быть
+и строкой, и списком; прощающий ввод не работал вовсе.
+
+## 1.2.0 - 2026-08-16
+
+Выпуск про проверку фактами. Навыки впервые сверены не с собственными эталонами, а с живой
+платформой: конфигурация из 36 объектов 35 типов метаданных собрана навыками, загружена в пустую базу
+8.3.27.2214 и выгружена обратно. Разбор того, что платформа исправила, вскрыл три дефекта, которые
+тестами поймать было нельзя - они сверяли вывод с эталоном, а эталон повторял ту же ошибку.
+
+### Что показал прогон через платформу
+
+**Константа без указанного типа значения выходила нерабочей.** В тип значения подставлялось слово
+`Constant` - имя типа метаданных вместо типа данных. Платформа отвечала "Неизвестное имя типа" и
+отказывалась грузить конфигурацию. Теперь без `valueType` берется строка, как и задумано.
+
+**Планы видов характеристик выходили с неверным префиксом порождаемого типа.** Для категории
+Characteristic писалось `ChartOfCharacteristicTypesCharacteristic`, тогда как платформа пишет просто
+`Characteristic`.
+
+**Заимствование в расширение теряло часть порождаемых типов.** У `1c-cfe-borrow` в наборах не хватало
+девяти пар - разделителя субконто у плана счетов, перерасчетов у регистра расчета, точки маршрута у
+бизнес-процесса и других; четырех типов не было вовсе. Заимствованная оболочка с неполным набором
+платформу не устраивает.
+
+### Диапазон версий формата больше не расползается
+
+`1c-form-validate` принимал только 2.17 и 2.20, тогда как остальные валидаторы - весь диапазон
+2.17-2.21. Форма, созданная соседним навыком, получала предупреждение о неизвестной версии. Теперь
+границы диапазона объявлены явно в двенадцати файлах.
+
+Сама лестница версий тоже перестала быть предположением: 2.17, 2.20 и 2.21 замерены на платформах
+8.3.24, 8.3.27 и 8.5.1.
+
+### Прочее
+
+Навык `dehumanize-ai-text` переименован в `humanize-ai-text` - прежнее имя означало обратное тому, что
+навык делает. Содержание дополнено: разбор ложных срабатываний, признаки живого текста, калибровка по
+авторскому образцу, двенадцать языковых антипаттернов.
+
+## 1.1.0 - 2026-08-15
+
+Выпуск про формат вывода и охват метаданных. Новых навыков нет, но то, что они пишут на диск,
+изменилось у 23 навыков сразу, а `1c-meta-compile` научился 14 новым типам объектов.
+
+### XML приведен к форме, которую пишет платформа
+
+Навыки писали XML в форме, которой 1С не пользуется: пустой элемент как `<Tag />` с пробелом (так
+сериализуют .NET XmlWriter и python ElementTree), лишний перевод строки после закрывающего тега,
+`encoding=utf-8` в нижнем регистре, пустая пара `<Vendor></Vendor>` вместо самозакрывающегося тега.
+
+Цена этого была не косметическая: любая правка навыком превращала следующую сверку с выгрузкой
+Конфигуратора в расхождение по всему файлу. В эталонах тестов накопилось **14062 таких тега в 412
+файлах**.
+
+Форму проверили не по документации, а по файлам самой платформы: в выгрузках 1С ноль вхождений
+`" />"` и нет хвостового перевода строки. Проверка закреплена регресс-тестами в исходном
+репозитории claude-code-skills-1c.
+
+Нормализация встроена во все места, где навыки сериализуют XML, и защищена от порчи данных: CDATA и
+комментарии идут первыми ветками альтернации и возвращаются как есть, а закрытие тега матчится
+структурно, вместе со списком атрибутов, поэтому значение атрибута вида `value="a />"` тоже уцелеет.
+
+### 14 новых типов метаданных в 1c-meta-compile
+
+Было 23 типа, стало **37**. Добавлены общие реквизиты, общие команды, группы команд, общие формы,
+общие макеты, общие картинки, критерии отбора, последовательности, нумераторы документов, параметры
+сеанса, хранилища настроек, функциональные опции и их параметры, WS-ссылки.
+
+Пути к метаданным в составе этих объектов принимаются по-русски и по-английски вперемешку:
+`Документ.Реализация.Реквизит.Склад` и `Document.Реализация.Attribute.Склад` - одно и то же.
+Описание полей каждого типа - `skills/1c-meta-compile/reference/types-config.md`.
+
+Заодно починена гонка в пакетном режиме: два одновременных запуска писали во временный файл с общим
+именем и портили друг другу вход. Python-зеркало `1c-meta-compile` новых типов пока не знает и честно
+отвечает `Unsupported type`.
+
+### cf-init: версии формата выгрузки
+
+Появился параметр `-FormatVersion` - 2.17, 2.18, 2.20, 2.21 - с зависимыми от версии тегами:
+мобильная функциональность `TextToSpeech` начиная с 2.18, пространство имен палитры и свойства
+главного окна 8.5 начиная с 2.21. На 2.17 тег `TextToSpeech` ломает загрузку XDTO-ошибкой, поэтому
+там он не пишется вовсе.
+
+Версия формата не ограничена закрытым списком: неизвестная версия дает предупреждение, а не отказ -
+лестница версий продолжается, и отвергать 2.19 было бы неверно. Тот же закрытый список расширен в
+`cf-validate`, `cfe-validate`, `epf-validate` и `meta-validate`.
+
+Кроме того, `cf-init` создает `Ext/ClientApplicationInterface.xml`, экранирует в синониме только
+`& < >` (кавычки и апострофы платформа не экранирует) и предупреждает про `CompatibilityMode DontUse`,
+не блокируя создание.
+
+### README
+
+Первый экран переписан: вместо трех абзацев статистики - что набор делает и для кого, карта
+возможностей по группам, проверенный пример "JSON на входе - файлы на выходе" и установка двумя
+путями: готовым промптом для агента и командами для тех, кто ставит руками.
+
+## 1.0.0 - 2026-08-14
+
+Первая версия с номером: до нее набор развивался без нумерации.
+
+### Пакеты XDTO - новая группа навыков
+
+Веб-сервисы и форматы обмена больше не остаются вручную: `1c-xdto-compile` собирает пакет из
+XSD-схемы, `1c-xdto-decompile` выгружает обратно в XSD, `1c-xdto-edit` правит типы и свойства
+точечно, `1c-xdto-info` показывает структуру и точки входа, `1c-xdto-validate` проверяет результат.
+Спецификация формата - `docs/1c-xdto-spec.md`.
+
+### Реестр шагов Vanessa Automation
+
+Навык `1c-vanessa-steps`: **1569 шагов** с описаниями и типами, поиск шага по смыслу и валидация
+готового сценария `.feature`. Закрывает конкретную болезнь - модель, не имея реестра, пишет
+правдоподобный шаг, которого в Vanessa нет, и сценарий падает только на прогоне в базе.
+
+```bash
+python skills/1c-vanessa-steps/scripts/search_steps.py --query "открыть форму документа" --top 5 --format human
+python skills/1c-vanessa-steps/scripts/validate.py сценарий.feature
+```
+
+### Установка и обновление окружения
+
+Навык `claude-env-setup` ставит набор и связанные инструменты, **не ломая то, что уже работает**:
+сначала опись машины, потом план, потом установка ТОЛЬКО выбранного. Конфигурация MCP правится
+слиянием, а не перезаписью; файл, который у пользователя отличается, показывается диффом, а не
+затирается молча. Готовые промпты для передачи агенту - `skills/claude-env-setup/PROMPT.md`.
+
+Прежняя инструкция (`cp -r skills/* ~/.claude/skills/`) осталась в README, но теперь с честным
+предупреждением: на доработанной машине она затирает правки пользователя.
+
+### Новые навыки и правила помимо перечисленного
+
+- `1c-meta-decompile` - черновик описания нового объекта по образцу существующего.
+- `docx-from-sample` - документ в оформлении готового образца: стили, нумерация заголовков, таблицы и
+  колонтитулы наследуются из файла-образца.
+- `meeting-to-tasks` - цикл от записи встречи до планов разработки.
+- `sync-fork` - синхронизация форка с upstream без потери своих доработок.
+- `lmstudio-api` - справочник HTTP-API локального сервера моделей.
+- Правила: `skill-design.md` (проектирование навыков: модельный и пользовательский вызов, лестница
+  информации, критерии завершения шага), `agent-working-memory.md` (файлы плана, передача сессии,
+  правила проекта как журнал инцидентов), `git-safety-rules.md`, `text-formatting.md`,
+  `file-edit-efficiency.md`.
+
+### Транскрибация: три исправленных дефекта
+
+- **Выдуманные имена спикеров.** Порог улик по замыслу не применялся к предложениям модели, и имя без
+  единого подтверждения проходило насквозь. Теперь имя, ни разу не прозвучавшее в записи, снимается;
+  подтвержденное голосовой базой - не пересматривается.
+- **Выдуманные числа в связном логе.** Замер на реальном прогоне: восемь сумм, кодов счетов и годов,
+  которых не было в описаниях кадров. Числа и коды нарратива сверяются с исходником, неподтвержденные
+  выносятся сноской в конец файла.
+- **Ослышки терминов.** Появился глоссарий: правильные написания уходят подсказкой в распознаватель
+  на каждом окне, ослышки правятся в готовом тексте (`DAX` вместо "ДАКС", `JSON` вместо "G-Splone").
+
+### AI-EDT: имя приведено к продукту
+
+Навык edt-tools переименован в `ai-edt-tools` вслед за именем плагина.
+**[AI-EDT](https://github.com/Desko77/ai-edt)** работает внутри запущенной 1C:EDT и дает ассистенту
+семантическую модель среды, а не текст файлов: ссылки на объекты метаданных, иерархии вызовов,
+выведенные типы BSL, правку метаданных без ручного XML, отладку и проверку результата валидаторами
+самой EDT. Установка - update site https://desko77.github.io/ai-edt/, требуется EDT 2026.2 или 2026.1.
+
+### Прочее
+
+- Опровергнуто правило про обязательный `<scale>0</scale>` у целочисленных реквизитов: EDT его
+  опускает, платформа принимает, реструктуризация проходит. Проверено на демо-конфигурации.
+- Утверждение про баг размера блока в `v8unpack 1.2.6` **не воспроизвелось на 1.2.9**: круговая
+  сборка проходит, заголовок корректен. В навык добавлен способ проверить это у себя.
+- README: раздел зависимостей дополнен таблицей MCP-серверов - какой ключ, для чего и какой навык на
+  него опирается.
+
+### Заимствования
+
+Тесты, навыки XDTO, `1c-meta-decompile`, хуки и спецификации форматов перенесены из
+[cc-1c-skills](https://github.com/Nikolay-Shirokov/cc-1c-skills) (MIT). Реестр шагов и инструменты
+валидации сценариев - из [va-ai](https://github.com/Nikolay-Shirokov/va-ai) (MIT). Правила
+`skill-design.md` и `agent-working-memory.md` - переложение идей из
+[trailofbits/skills-curated](https://github.com/trailofbits/skills-curated) и
+[1c-ai-dev-env](https://github.com/Pradushkoai/1c-ai-dev-env).
+
+---
+
+Итого в наборе: **111 навыков**, **35 правил**, 5 команд.
+
+Набор собирается из [claude-code-skills-1c](https://github.com/Desko77/claude-code-skills-1c) конвертером: правила переводятся в формат `.mdc`, из навыков убираются поля, специфичные для Claude Code. Регресс-тесты скриптов и хуки живут в исходном репозитории - они завязаны на его инфраструктуру.

@@ -1,0 +1,33 @@
+###### v8cs:right-all-functions-mode
+
+# Право установлено: Режим "Все функции" (right-all-functions-mode)
+
+- Категория: `right`
+
+<!-- diagnostic-source:start
+source_url=https://github.com/1C-Company/v8-code-style/blob/c8fe7932babf718c0ace3cf836a99d6a3b98d098/bundles/com.e1c.v8codestyle.right/markdown/ru/right-all-functions-mode.md
+source_path=bundles/com.e1c.v8codestyle.right/markdown/ru/right-all-functions-mode.md
+revision=c8fe7932babf718c0ace3cf836a99d6a3b98d098
+SPDX-License-Identifier: EPL-2.0
+sha256=8dcbe7830f053fcea009396316e10870bcad92cdbf9ba16ea42d55fd5958a8c9
+-->
+
+В случае если в конфигурации для пользователей необходимо настраивать общие права работы с информационной базой (такие как «Тонкий клиент», «Толстый клиент», «Интерактивное открытие внешних обработок» и т.д.), то в конфигурации должны быть определены отдельные роли для предоставления этих прав. Такие роли не предназначены для самостоятельного использования, их следует назначать пользователям совместно с остальными ролями конфигурации.
+
+## См.
+
+https://its.1c.ru/db/v8std#content:488:hdoc
+
+<!-- diagnostic-source:end -->
+
+<!-- diagnostic-standards:start -->
+## Соответствие стандартам
+
+Нет подтверждённых связей со стандартами.
+<!-- diagnostic-standards:end -->
+
+## Источник диагностики
+
+- [Исходная статья](https://github.com/1C-Company/v8-code-style/blob/c8fe7932babf718c0ace3cf836a99d6a3b98d098/bundles/com.e1c.v8codestyle.right/markdown/ru/right-all-functions-mode.md)
+- Ревизия: `c8fe7932babf718c0ace3cf836a99d6a3b98d098`
+- Лицензия: `EPL-2.0`

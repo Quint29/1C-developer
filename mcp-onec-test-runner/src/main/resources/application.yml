@@ -1,0 +1,21 @@
+# MCP YaXUnit Runner Application Configuration
+# Основные настройки приложения для запуска тестов YaXUnit
+
+spring:
+  application:
+    name: mcp-yaxunit-runner
+  main:
+    banner-mode: off
+    web-application-type: none
+
+# Настройки кэширования
+cache:
+  enabled: true
+  type: mapdb
+  max_size: 10000
+  ttl: 3600000  # 1 час
+
+# Настройки логирования
+logging:
+  level:
+    root: INFO

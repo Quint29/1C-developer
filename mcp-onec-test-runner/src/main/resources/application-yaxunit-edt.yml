@@ -1,0 +1,54 @@
+# Настройки для проекта YAxUnit
+# Профиль: yaxunit
+
+# Базовые настройки приложения
+app:
+  id: yaxunit
+  format: EDT
+  # Базовый путь к проекту
+  base-path: "/home/alko/develop/bia/YAxUnit-Repos/yaxunit/"
+  
+  # Набор исходного кода проекта
+  source-set:
+    # Основная конфигурация YAxUnit (движок)
+    - path: "fixtures/demo-configuration"
+      name: configuration
+      type: "CONFIGURATION"
+      purpose: [ "TESTS" ]
+    
+    # Основная конфигурация YAxUnit (движок)
+    - path: "exts/yaxunit"
+      name: yaxunit
+      type: "EXTENSION"
+      purpose: [ "MAIN", "YAXUNIT" ]
+    
+    # Основная конфигурация YAxUnit (движок)
+    - path: "exts/smoke"
+      name: smoke
+      type: "EXTENSION"
+      purpose: [ "MAIN", "YAXUNIT" ]
+
+    # Тесты YAxUnit
+    - path: "tests"
+      name: tests
+      type: "EXTENSION"
+      purpose: [ "TESTS" ]
+
+  # Настройки подключения к информационной базе
+  connection:
+    connection-string: "File='/home/common/develop/file-data-base/YAxUnit/';"
+  
+  # Версия платформы из v8config.json
+  platform-version: "8.3.22.1709"
+  
+  # Настройки инструментов
+  tools:
+    # Тип сборщика: DESIGNER или IBCMD
+    builder: DESIGNER
+    # Настройки EDT CLI
+    edt-cli:
+      auto-start: true
+      working-directory: "/home/common/develop/edt-ws/yaxunit"
+      startup-timeout-ms: 300000 # 5 минут
+      command-timeout-ms: 600000 # 10 минут
+      ready-check-timeout-ms: 5000

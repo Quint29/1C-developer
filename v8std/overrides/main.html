@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block site_meta %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  {% include "partials/page_meta.html" ignore missing %}
+  {% if page_meta and page_meta.description %}
+    <meta name="description" content="{{ page_meta.description | e }}">
+  {% elif page.meta and page.meta.description %}
+    <meta name="description" content="{{ page.meta.description | e }}">
+  {% elif config.site_description %}
+    <meta name="description" content="{{ config.site_description | e }}">
+  {% endif %}
+  {% if page.meta and page.meta.author %}
+    <meta name="author" content="{{ page.meta.author | e }}">
+  {% elif config.site_author %}
+    <meta name="author" content="{{ config.site_author | e }}">
+  {% endif %}
+  {% if page.canonical_url %}
+    <link rel="canonical" href="{{ page.canonical_url | e }}">
+  {% endif %}
+  {% if page.previous_page %}
+    <link rel="prev" href="{{ page.previous_page.url | url | e }}">
+  {% endif %}
+  {% if page.next_page %}
+    <link rel="next" href="{{ page.next_page.url | url | e }}">
+  {% endif %}
+  {% if config.extra.alternate is iterable %}
+    {% for alt in config.extra.alternate %}
+      <link rel="alternate" href="{{ alt.link | url | e }}" hreflang="{{ alt.lang | d(lang.t('language')) | e }}">
+    {% endfor %}
+  {% endif %}
+  {% set href = config.theme.favicon | d("assets/images/favicon.png") %}
+  <link rel="icon" href="{{ href | url | e }}">
+  <link rel="apple-touch-icon" href="{{ 'assets/images/icon-192.png' | url | e }}">
+  <link rel="manifest" href="{{ 'manifest.webmanifest' | url | e }}">
+  <meta name="theme-color" content="#0b6fa4">
+  <meta name="generator" content="{{ generator | e }}">
+{% endblock %}
+
+{% block htmltitle %}
+  {% include "partials/page_meta.html" ignore missing %}
+  {% if page_meta and page_meta.seo_title %}
+    {% if page.is_homepage %}
+      <title>{{ page_meta.seo_title | e }}</title>
+    {% else %}
+      <title>{{ page_meta.seo_title | e }} - {{ config.site_name | e }}</title>
+    {% endif %}
+  {% elif page.meta and page.meta.title %}
+    <title>{{ page.meta.title | striptags | e }} - {{ config.site_name | e }}</title>
+  {% elif page.title and not page.is_homepage %}
+    <title>{{ page.title | striptags | e }} - {{ config.site_name | e }}</title>
+  {% else %}
+    <title>{{ config.site_name | e }}</title>
+  {% endif %}
+{% endblock %}
+
+{% block extrahead %}
+  {{ super() }}
+
+  {% if not config.extra.local_publication %}
+  <script defer src="https://u.ingvar.pro/script.js" data-website-id="e6d9711e-3090-45e1-aa57-be1a9fe4567a"></script>
+  <script defer src="https://u.ingvar.pro/recorder.js" data-website-id="e6d9711e-3090-45e1-aa57-be1a9fe4567a" data-sample-rate="0.15" data-mask-level="moderate" data-max-duration="300000"></script>
+  {% endif %}
+  {% include "partials/social_meta.html" ignore missing %}
+{% endblock %}

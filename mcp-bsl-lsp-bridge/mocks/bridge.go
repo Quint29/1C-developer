@@ -1,0 +1,270 @@
+package mocks
+
+import (
+	"encoding/json"
+
+	"rockerboo/mcp-lsp-bridge/types"
+	"rockerboo/mcp-lsp-bridge/utils"
+
+	"github.com/myleshyson/lsprotocol-go/protocol"
+	"github.com/stretchr/testify/mock"
+)
+
+type MockBridge struct {
+	mock.Mock
+}
+
+func (m *MockBridge) HasPathMapper() bool {
+	// Default behavior for tests: no path mapping unless explicitly needed.
+	return false
+}
+
+func (m *MockBridge) GetPathMapper() *utils.DockerPathMapper {
+	// Default behavior for tests: no mapper.
+	return nil
+}
+
+func (m *MockBridge) NormalizeURIForLSP(uri string) string {
+	// Default behavior for tests: return URI as-is (no path mapping)
+	return uri
+}
+
+func (m *MockBridge) GetClientForLanguage(language string) (types.LanguageClientInterface, error) {
+	args := m.Called(language)
+
+	// Safe type assertion with error checking
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	// Try to assert to the interface type
+	if client, ok := args.Get(0).(types.LanguageClientInterface); ok {
+		return client, args.Error(1)
+	}
+
+	return nil, args.Error(1)
+}
+
+func (m *MockBridge) InferLanguage(filePath string) (*types.Language, error) {
+	args := m.Called(filePath)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	return args.Get(0).(*types.Language), args.Error(1)
+}
+
+func (m *MockBridge) ProjectRoots() ([]string, error) {
+	args := m.Called()
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockBridge) SetProjectRoots(paths []string) {
+	m.Called(paths)
+}
+
+func (m *MockBridge) IsAllowedDirectory(path string) (string, error) {
+	args := m.Called(path)
+	return args.Get(0).(string), args.Error(1)
+}
+
+func (m *MockBridge) AllowedDirectories() []string {
+	args := m.Called()
+	return args.Get(0).([]string)
+}
+
+func (m *MockBridge) CloseAllClients() {
+	m.Called()
+}
+
+func (m *MockBridge) GetConfig() types.LSPServerConfigProvider {
+	args := m.Called()
+	return args.Get(0).(types.LSPServerConfigProvider)
+}
+
+func (m *MockBridge) GetServerConfig(language string) (types.LanguageServerConfigProvider, error) {
+	args := m.Called(language)
+	return args.Get(0).(types.LanguageServerConfigProvider), args.Error(1)
+}
+
+func (m *MockBridge) DetectProjectLanguages(projectPath string) ([]types.Language, error) {
+	args := m.Called(projectPath)
+	return args.Get(0).([]types.Language), args.Error(1)
+}
+
+func (m *MockBridge) DetectPrimaryProjectLanguage(projectPath string) (*types.Language, error) {
+	args := m.Called(projectPath)
+	return args.Get(0).(*types.Language), args.Error(1)
+}
+
+func (m *MockBridge) GetConnectedLanguages() []types.Language {
+	// This method is an optimization hint. Many tests don't care about it, so
+	// provide a safe default when no expectation was configured.
+	for _, c := range m.ExpectedCalls {
+		if c.Method == "GetConnectedLanguages" {
+			args := m.Called()
+			return args.Get(0).([]types.Language)
+		}
+	}
+	return nil
+}
+
+func (m *MockBridge) FindSymbolReferences(language, uri string, line, character uint32, includeDeclaration bool) ([]protocol.Location, error) {
+	args := m.Called(language, uri, line, character, includeDeclaration)
+	return args.Get(0).([]protocol.Location), args.Error(1)
+}
+
+func (m *MockBridge) FindSymbolDefinitions(language, uri string, line, character uint32) ([]protocol.Or2[protocol.LocationLink, protocol.Location], error) {
+	args := m.Called(language, uri, line, character)
+	return args.Get(0).([]protocol.Or2[protocol.LocationLink, protocol.Location]), args.Error(1)
+}
+
+func (m *MockBridge) SearchTextInWorkspace(language, query string) ([]protocol.WorkspaceSymbol, error) {
+	args := m.Called(language, query)
+	return args.Get(0).([]protocol.WorkspaceSymbol), args.Error(1)
+}
+
+func (m *MockBridge) SearchTextInAllLanguages(query string) ([]protocol.WorkspaceSymbol, error) {
+	args := m.Called(query)
+	return args.Get(0).([]protocol.WorkspaceSymbol), args.Error(1)
+}
+
+func (m *MockBridge) GetMultiLanguageClients(languages []string) (map[types.Language]types.LanguageClientInterface, error) {
+	args := m.Called(languages)
+	return args.Get(0).(map[types.Language]types.LanguageClientInterface), args.Error(1)
+}
+
+func (m *MockBridge) GetHoverInformation(uri string, line, character uint32) (*protocol.Hover, error) {
+	args := m.Called(uri, line, character)
+	return args.Get(0).(*protocol.Hover), args.Error(1)
+}
+
+func (m *MockBridge) GetDiagnostics(uri string) ([]any, error) {
+	args := m.Called(uri)
+	return args.Get(0).([]any), args.Error(1)
+}
+
+func (m *MockBridge) GetWorkspaceDiagnostics(workspaceUri string, identifier string) ([]protocol.WorkspaceDiagnosticReport, error) {
+	args := m.Called(workspaceUri, identifier)
+	return args.Get(0).([]protocol.WorkspaceDiagnosticReport), args.Error(1)
+}
+
+func (m *MockBridge) GetSignatureHelp(uri string, line, character uint32) (*protocol.SignatureHelp, error) {
+	args := m.Called(uri, line, character)
+	return args.Get(0).(*protocol.SignatureHelp), args.Error(1)
+}
+
+func (m *MockBridge) GetCodeActions(uri string, line, character, endLine, endCharacter uint32) ([]protocol.CodeAction, error) {
+	args := m.Called(uri, line, character, endLine, endCharacter)
+	return args.Get(0).([]protocol.CodeAction), args.Error(1)
+}
+
+func (m *MockBridge) FormatDocument(uri string, tabSize uint32, insertSpaces bool) ([]protocol.TextEdit, error) {
+	args := m.Called(uri, tabSize, insertSpaces)
+	return args.Get(0).([]protocol.TextEdit), args.Error(1)
+}
+
+func (m *MockBridge) RangeFormatting(uri string, startLine, startCharacter, endLine, endCharacter uint32, tabSize uint32, insertSpaces bool) ([]protocol.TextEdit, error) {
+	args := m.Called(uri, startLine, startCharacter, endLine, endCharacter, tabSize, insertSpaces)
+	return args.Get(0).([]protocol.TextEdit), args.Error(1)
+}
+
+func (m *MockBridge) ApplyTextEdits(uri string, edits []protocol.TextEdit) error {
+	args := m.Called(uri, edits)
+	return args.Error(0)
+}
+
+func (m *MockBridge) RenameSymbol(uri string, line, character uint32, newName string, preview bool) (*protocol.WorkspaceEdit, error) {
+	args := m.Called(uri, line, character, newName, preview)
+	return args.Get(0).(*protocol.WorkspaceEdit), args.Error(1)
+}
+
+func (m *MockBridge) PrepareRename(uri string, line, character uint32) (*protocol.PrepareRenameResult, error) {
+	args := m.Called(uri, line, character)
+	return args.Get(0).(*protocol.PrepareRenameResult), args.Error(1)
+}
+
+func (m *MockBridge) ApplyWorkspaceEdit(edit *protocol.WorkspaceEdit) error {
+	args := m.Called(edit)
+	return args.Error(0)
+}
+
+func (m *MockBridge) FindImplementations(uri string, line, character uint32) ([]protocol.Location, error) {
+	args := m.Called(uri, line, character)
+	return args.Get(0).([]protocol.Location), args.Error(1)
+}
+
+func (m *MockBridge) SemanticTokens(uri string, targetTypes []string, startLine, startCharacter, endLine, endCharacter uint32) ([]types.TokenPosition, error) {
+	args := m.Called(uri, startLine, startCharacter, endLine, endCharacter)
+	return args.Get(0).([]types.TokenPosition), args.Error(1)
+}
+
+func (m *MockBridge) FoldingRange(uri string) ([]protocol.FoldingRange, error) {
+	args := m.Called(uri)
+	return args.Get(0).([]protocol.FoldingRange), args.Error(1)
+}
+
+func (m *MockBridge) SelectionRange(uri string, positions []protocol.Position) ([]protocol.SelectionRange, error) {
+	args := m.Called(uri, positions)
+	return args.Get(0).([]protocol.SelectionRange), args.Error(1)
+}
+
+func (m *MockBridge) InlayHint(uri string, startLine, startCharacter, endLine, endCharacter uint32) ([]protocol.InlayHint, error) {
+	args := m.Called(uri, startLine, startCharacter, endLine, endCharacter)
+	return args.Get(0).([]protocol.InlayHint), args.Error(1)
+}
+
+func (m *MockBridge) GetCompletion(uri string, line, character uint32) (*protocol.CompletionList, error) {
+	args := m.Called(uri, line, character)
+	return args.Get(0).(*protocol.CompletionList), args.Error(1)
+}
+
+func (m *MockBridge) DocumentLink(uri string) ([]protocol.DocumentLink, error) {
+	args := m.Called(uri)
+	return args.Get(0).([]protocol.DocumentLink), args.Error(1)
+}
+
+func (m *MockBridge) DocumentColor(uri string) ([]protocol.ColorInformation, error) {
+	args := m.Called(uri)
+	return args.Get(0).([]protocol.ColorInformation), args.Error(1)
+}
+
+func (m *MockBridge) ColorPresentation(uri string, color protocol.Color, rng protocol.Range) ([]protocol.ColorPresentation, error) {
+	args := m.Called(uri, color, rng)
+	return args.Get(0).([]protocol.ColorPresentation), args.Error(1)
+}
+
+func (m *MockBridge) ExecuteCommand(language string, command string, arguments []any) (json.RawMessage, error) {
+	args := m.Called(language, command, arguments)
+	return args.Get(0).(json.RawMessage), args.Error(1)
+}
+
+func (m *MockBridge) DidChangeWatchedFiles(language string, changes []protocol.FileEvent) error {
+	args := m.Called(language, changes)
+	return args.Error(0)
+}
+
+func (m *MockBridge) DidChangeConfiguration(language string, settings any) error {
+	args := m.Called(language, settings)
+	return args.Error(0)
+}
+
+func (m *MockBridge) PrepareCallHierarchy(uri string, line, character uint32) ([]protocol.CallHierarchyItem, error) {
+	args := m.Called(uri, line, character)
+	return args.Get(0).([]protocol.CallHierarchyItem), args.Error(1)
+}
+
+func (m *MockBridge) IncomingCalls(item protocol.CallHierarchyItem) ([]protocol.CallHierarchyIncomingCall, error) {
+	args := m.Called(item)
+	return args.Get(0).([]protocol.CallHierarchyIncomingCall), args.Error(1)
+}
+
+func (m *MockBridge) OutgoingCalls(item protocol.CallHierarchyItem) ([]protocol.CallHierarchyOutgoingCall, error) {
+	args := m.Called(item)
+	return args.Get(0).([]protocol.CallHierarchyOutgoingCall), args.Error(1)
+}
+
+func (m *MockBridge) GetDocumentSymbols(uri string) ([]protocol.DocumentSymbol, error) {
+	args := m.Called(uri)
+	return args.Get(0).([]protocol.DocumentSymbol), args.Error(1)
+}

@@ -1,0 +1,38 @@
+# Профиль для STDIO режима (по умолчанию)
+spring:
+  ai:
+    mcp:
+      server:
+        # Информация о сервере
+        name: "YaXUnit Test Runner MCP Server"
+        version: "1.0.0"
+        description: "MCP сервер для запуска и управления тестами YaXUnit в проектах 1С Предприятие"
+        instructions: "MCP сервер для выполнения тестов YaXUnit. Поддерживает запуск всех тестов, тестирование отдельных модулей, сборку проекта, получение конфигурации и проверку статуса платформы 1С."
+        type: SYNC
+
+        # Возможности сервера
+        capabilities:
+          tools:
+            # Поддержка инструментов
+            enabled: true
+          resources:
+            # Поддержка ресурсов (отключено для простоты)
+            enabled: false
+          prompts:
+            # Поддержка промптов (отключено для простоты)
+            enabled: false
+  main:
+    web-application-type: none
+    banner-mode: off
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration
+      - org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration
+      - org.springframework.boot.autoconfigure.web.reactive.WebFluxAutoConfiguration
+# Настройки логирования
+logging:
+  config: classpath:logback-mcp.xml
+
+server:
+  port: -1

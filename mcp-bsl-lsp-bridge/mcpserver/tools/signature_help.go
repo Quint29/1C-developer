@@ -1,0 +1,99 @@
+package tools
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"rockerboo/mcp-lsp-bridge/interfaces"
+	"rockerboo/mcp-lsp-bridge/logger"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+	"github.com/myleshyson/lsprotocol-go/protocol"
+)
+
+// RegisterSignatureHelpTool registers the signature help tool
+func RegisterSignatureHelpTool(mcpServer ToolServer, bridge interfaces.BridgeInterface) {
+	mcpServer.AddTool(SignatureHelpTool(bridge))
+}
+
+func SignatureHelpTool(bridge interfaces.BridgeInterface) (mcp.Tool, server.ToolHandlerFunc) {
+	return mcp.NewTool("signature_help",
+			mcp.WithDescription("Get function parameter information at call sites. ESSENTIAL when writing function calls - provides real-time parameter hints and overload information that prevents syntax errors."),
+			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithString("uri", mcp.Description("URI to the file")),
+			mcp.WithNumber("line", mcp.Description("Line number (0-based) - position at function call site")),
+			mcp.WithNumber("character", mcp.Description("Character position (0-based) - position within function call parentheses")),
+		),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			// Parse and validate parameters
+			uri, err := request.RequireString("uri")
+			if err != nil {
+				logger.Error("signature_help: URI parsing failed", err)
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			line, err := request.RequireInt("line")
+			if err != nil {
+				logger.Error("signature_help: Line parsing failed", err)
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			character, err := request.RequireInt("character")
+			if err != nil {
+				logger.Error("signature_help: Character parsing failed", err)
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			if result, ok := CheckReadyOrReturn(bridge); !ok {
+				return result, nil
+			}
+
+			// Safe conversions for line and character
+			lineUint32, err := safeUint32(line)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid line number: %v", err)), nil
+			}
+			characterUint32, err := safeUint32(character)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid character position: %v", err)), nil
+			}
+
+			// Execute bridge method
+			result, err := bridge.GetSignatureHelp(uri, lineUint32, characterUint32)
+			if err != nil {
+				logger.Error("signature_help: Request failed", err)
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to get signature help: %+v", err)), nil
+			}
+
+			// Format and return result
+			if result == nil || len(result.Signatures) == 0 {
+				return mcp.NewToolResultText("No signature help available"), nil
+			}
+
+			return mcp.NewToolResultText(formatSignatureHelp(result)), nil
+		}
+}
+
+func formatSignatureHelp(sh *protocol.SignatureHelp) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Signatures: %d (active: %d)\n", len(sh.Signatures), sh.ActiveSignature)
+	if sh.ActiveParameter != nil {
+		fmt.Fprintf(&b, "Active parameter: %d\n", *sh.ActiveParameter)
+	}
+	for i, sig := range sh.Signatures {
+		fmt.Fprintf(&b, "  [%d] %s\n", i, sig.Label)
+		for _, p := range sig.Parameters {
+			fmt.Fprintf(&b, "        - %s\n", parameterLabelString(p.Label))
+		}
+	}
+	return b.String()
+}
+
+func parameterLabelString(label protocol.Or2[string, protocol.Tuple[uint32, uint32]]) string {
+	if s, ok := label.Value.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", label.Value)
+}

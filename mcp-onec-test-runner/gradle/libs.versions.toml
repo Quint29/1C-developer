@@ -1,0 +1,97 @@
+[versions]
+kotlin = "2.1.20"
+kotlin-logging = "7.0.7"
+springBoot = "3.5.3"
+springDependencyManagement = "1.1.7"
+gitVersioning = "6.4.4"
+gradleGitProperties = "2.5.7"
+ktlintGradle = "14.2.0"
+logback = "1.5.18"
+junit-bom = "5.12.2"
+assertj = "3.27.3"
+slf4j-log4j12 = "1.7.30"
+kotlinx-serialization = "1.6.3"
+
+springAi = "1.0.0"
+ktlint = "1.4.1"
+jacoco = "0.8.11"
+dependencyCheck = "10.0.3"
+graalvmNative = "0.11.1"
+
+[libraries]
+# Kotlin
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect" }
+kotlin-stdlib-jdk8 = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8" }
+kotlin-test-junit5 = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit5" }
+kotlin-logging-jvm = { group = "io.github.oshai", name = "kotlin-logging-jvm", version.ref = "kotlin-logging" }
+
+# Spring Boot
+spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter" }
+spring-boot-starter-cache = { group = "org.springframework.boot", name = "spring-boot-starter-cache" }
+spring-ai-starter-mcp-server = { group = "org.springframework.ai", name = "spring-ai-starter-mcp-server" }
+
+spring-ai-starter-mcp-server-webflux = { group = "org.springframework.ai", name = "spring-ai-starter-mcp-server-webflux" }
+spring-webflux= { group = "org.springframework", name = "spring-webflux" }
+
+# Jackson
+jackson-core = { group = "com.fasterxml.jackson.core", name = "jackson-core" }
+jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind" }
+jackson-annotations = { group = "com.fasterxml.jackson.core", name = "jackson-annotations" }
+jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin" }
+
+# Logging
+logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
+
+# Reactor
+reactor-core = { group = "io.projectreactor", name = "reactor-core" }
+
+# Testing
+junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
+slf4j-log4j12 = { group = "org.slf4j", name = "slf4j-log4j12", version.ref = "slf4j-log4j12" }
+junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit-bom" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter" }
+assertj-core = { group = "org.assertj", name = "assertj-core", version.ref = "assertj" }
+spring-boot-starter-test = { group = "org.springframework.boot", name = "spring-boot-starter-test" }
+
+[bundles]
+# Kotlin bundle
+kotlin = [
+    "kotlin-logging-jvm",
+]
+
+# Jackson bundle
+jackson = [
+    "jackson-core",
+    "jackson-databind",
+    "jackson-module-kotlin"
+]
+
+# Spring Boot bundle
+spring-boot = [
+    "spring-ai-starter-mcp-server"
+]
+
+# Logging bundle
+logging = [
+    "logback-classic"
+]
+
+# JUnit bundle
+junit = [
+    "kotlin-test-junit5",
+    "junit-jupiter",
+    "junit-platform-launcher"
+]
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+git-versioning = { id = "me.qoomon.git-versioning", version.ref = "gitVersioning" }
+gradle-git-properties = { id = "com.gorylenko.gradle-git-properties", version.ref = "gradleGitProperties" }
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
+dependencyCheck = { id = "org.owasp.dependencycheck", version.ref = "dependencyCheck" }
+graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvmNative" }

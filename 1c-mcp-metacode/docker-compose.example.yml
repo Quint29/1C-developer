@@ -1,0 +1,131 @@
+name: ROCTUP-Metacode
+services:
+###########################################
+## NEO4J Database
+###########################################
+  1c-neo4j:
+    image: neo4j:latest
+    restart: unless-stopped
+    ports:
+      - "7474:7474"   # Neo4j Browser (optional)
+      - "7687:7687"   # Bolt
+    volumes:
+      - 1c_neo4j_data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+      - NEO4J_client_allow__telemetry=false
+      - NEO4J_dbms_memory_transaction_total_max=4096m
+      - NEO4J_db_transaction_timeout=300s
+      - NEO4J_server_memory_heap_max__size=4096m
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -a bolt://localhost:7687 -u neo4j -p \"${NEO4J_PASSWORD}\" 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+###########################################
+## Project1
+###########################################
+  1c-metacode-prj1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: roctup/1c-mcp-metacode:latest
+    restart: unless-stopped
+    ports:
+      - "6001:6001"  # MCP server (project 1)
+    # Host directories are mounted into the container's /app/data directory.
+    # The application expects to find 'metadata' and an optional 'code' subdirectory.
+    #
+    # Example 1: Single project directory from host
+    #   ./data/prj1/metadata -> /app/data/metadata
+    #   ./data/prj1/code     -> /app/data/code
+    #
+    # volumes:
+    #   - ./data/prj1:/app/data
+    #
+    # Example 2: Separate host directories for metadata and code
+    #   D:\metadata\prj1 -> /app/data/metadata
+    #   E:\sources\prj1  -> /app/data/code
+    #
+    # volumes:
+    #   - D:\metadata\prj1:/app/data/metadata
+    #   - E:\sources\prj1:/app/data/code
+    #
+    # Example 3: With 1C extensions (LOAD_EXTENSIONS=true, on by default).
+    # Each extension is its own subdirectory under /app/data/extensions/<ExtName>,
+    # with the same 'metadata' (+ optional 'code') layout as the base configuration.
+    #   ./data/prj1/metadata                    -> /app/data/metadata
+    #   ./data/prj1/code                        -> /app/data/code
+    #   ./data/prj1/extensions/ExtensionA/metadata -> /app/data/extensions/ExtensionA/metadata
+    #   ./data/prj1/extensions/ExtensionA/code     -> /app/data/extensions/ExtensionA/code
+    #   ./data/prj1/extensions/ExtensionB/metadata -> /app/data/extensions/ExtensionB/metadata
+    #   ./data/prj1/extensions/ExtensionB/code     -> /app/data/extensions/ExtensionB/code
+    #
+    # volumes:
+    #   - ./data/prj1:/app/data
+    volumes:
+      - ./data/prj1:/app/data
+      - ./logs/prj1:/app/logs
+      - storage_prj1:/app/storage
+      # Optional multi-profile config for agent LLMs.
+      # Create ./console_agent_llm.yaml near .env and uncomment this mount.
+      # If mounted, it overrides single-model CONSOLE_AGENT_MODEL settings.
+      # - ./console_agent_llm.yaml:/app/config/console_agent_llm.yaml:ro
+    env_file:
+      - .env
+    # Все общие переменные приходят из .env через env_file — их не нужно
+    # дублировать здесь. Ниже — только то, что обязано отличаться по проектам.
+    environment:
+      # Критично: разные имена проектов, иначе данные prj1/prj2 схлопнутся
+      # в одном разделе общей Neo4j.
+      - PROJECT_NAME=Project_A
+      # Критично: держим явный false для каждого проекта отдельно, чтобы
+      # общий .env с FULL_METADATA_RELOAD=true случайно не снёс оба проекта разом.
+      # Примечание: FULL_METADATA_RELOAD=true очищает ТОЛЬКО данные текущего PROJECT_NAME
+      # (в рамках проекта), а не всю БД.
+      - FULL_METADATA_RELOAD=false
+    depends_on:
+      1c-neo4j:
+        condition: service_healthy
+
+###########################################
+## Project2
+###########################################
+  1c-metacode-prj2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: roctup/1c-mcp-metacode:latest
+    restart: unless-stopped
+    ports:
+      - "6102:6001"  # MCP server (project 2) -> host:6102
+    # See comments for `1c-metacode-prj1` for volume mapping examples.
+    volumes:
+      - ./data/prj2:/app/data
+      - ./logs/prj2:/app/logs
+      - storage_prj2:/app/storage
+      # Optional multi-profile config for agent LLMs.
+      # Create ./console_agent_llm.yaml near .env and uncomment this mount.
+      # If mounted, it overrides single-model CONSOLE_AGENT_MODEL settings.
+      # - ./console_agent_llm.yaml:/app/config/console_agent_llm.yaml:ro
+    env_file:
+      - .env
+    environment:
+      - PROJECT_NAME=Project_B
+      # Критично: держим явный false для каждого проекта отдельно, чтобы
+      # общий .env с FULL_METADATA_RELOAD=true случайно не снёс оба проекта разом.
+      # Примечание: FULL_METADATA_RELOAD=true очищает ТОЛЬКО данные текущего PROJECT_NAME
+      # (в рамках проекта), а не всю БД.
+      - FULL_METADATA_RELOAD=false
+    depends_on:
+      1c-neo4j:
+        condition: service_healthy
+
+volumes:
+  1c_neo4j_data:
+    driver: local
+  storage_prj1:
+    driver: local
+  storage_prj2:
+    driver: local

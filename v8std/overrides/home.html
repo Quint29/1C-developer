@@ -1,0 +1,62 @@
+{% extends "main.html" %}
+
+<!-- Render hero under tabs -->
+{% block tabs %}
+  {{ super() }}
+
+  <section class="v8std-home-hero">
+    <div class="md-grid md-typeset">
+      <div class="v8std-home-hero__inner">
+        <div class="v8std-home-hero__lead">
+          <h1>Стандарты разработки 1С, с которыми проще писать, проверять и поддерживать код</h1>
+          <p class="v8std-home-hero__summary">
+            v8std.ru связывает стандарты и диагностики в один рабочий маршрут: от предупреждения
+            линтера до понятного правила и способа исправления.
+          </p>
+        </div>
+        <aside class="v8std-home-proof" aria-label="Факты о проекте">
+          <div class="v8std-home-proof__intro">
+            <p class="v8std-home-proof__eyebrow">Что есть на сайте</p>
+          </div>
+          <div class="v8std-home-metrics">
+            <div class="v8std-home-metric">
+              <strong>321</strong>
+              <span>стандартов</span>
+            </div>
+            <div class="v8std-home-metric">
+              <strong>1049</strong>
+              <span>диагностик</span>
+            </div>
+          </div>
+          <div class="v8std-home-proof__case">
+            <p class="v8std-home-proof__eyebrow">Пример сценария</p>
+            <h3>Как расшифровать AssignAliasFieldsInQuery</h3>
+            <ol class="v8std-home-case-flow">
+              <li>
+                <a href="{{ 'diagnostics/bslls/AssignAliasFieldsInQuery/' | url }}">
+                  Открыть диагностику
+                </a>
+                <span>Понять, что именно проверяет линтер.</span>
+              </li>
+              <li>
+                <a href="{{ 'std/437/' | url }}">
+                  Перейти к #std437
+                </a>
+                <span>Увидеть правило, примеры и пояснения.</span>
+              </li>
+              <li>
+                <span class="v8std-home-case-flow__result">
+                  Исправить текст запроса так, чтобы его было легче читать и сопровождать.
+                </span>
+              </li>
+            </ol>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block content %}
+  {{ super() }}
+{% endblock %}

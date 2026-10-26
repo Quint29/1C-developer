@@ -1,0 +1,75 @@
+/*
+ * This file is part of METR.
+ *
+ * Copyright (C) 2025 Aleksey Koryakin <alkoleft@gmail.com> and contributors.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * METR is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * METR is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with METR.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+package io.github.alkoleft.mcp.infrastructure.platform.dsl.designer.commands
+
+import java.nio.file.Path
+
+/**
+ * Команда LoadCfg с DSL функциональностью
+ *
+ * /LoadCfg <путь к файлу конфигурации> [/UpdateDBCfg]
+ *
+ * Загрузка конфигурации из файла .cf
+ */
+class LoadCfgCommand :
+    DesignerCommand(),
+    UpdateDBCfgSupport {
+    override val name: String = "LoadCfg"
+    override val description: String = "Загрузка конфигурации из файла"
+
+    // DSL параметры
+    var configPath: Path? = null
+    override var updateDBCfg: Boolean = false
+
+    // DSL методы
+    fun config(path: Path) {
+        this.configPath = path
+    }
+
+    override val arguments: List<String>
+        get() {
+            val args = mutableListOf<String>()
+
+            // Команда
+            args.add("/$name")
+
+            // Путь к файлу конфигурации (обязательный)
+            configPath?.let { args.add(it.toString()) }
+
+            // Параметр /UpdateDBCfg
+            addUpdateDBCfgToArguments(args)
+
+            return args
+        }
+
+    override val parameters: Map<String, String>
+        get() {
+            val params = mutableMapOf<String, String>()
+
+            configPath?.let { params["configPath"] = it.toString() }
+
+            // Параметр updateDBCfg
+            addUpdateDBCfgToParameters(params)
+
+            return params
+        }
+}

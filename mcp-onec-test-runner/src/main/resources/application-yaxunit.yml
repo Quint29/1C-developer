@@ -1,0 +1,47 @@
+# Настройки для проекта YAxUnit
+# Профиль: yaxunit
+
+# Базовые настройки приложения
+app:
+  id: yaxunit
+  format: DESIGNER
+  # Базовый путь к проекту
+  base-path: "/home/akoryakin@dellin.local/Загрузки/sources/"
+  
+  # Набор исходного кода проекта
+  source-set:
+    # Основная конфигурация YAxUnit (движок)
+    - path: "configuration"
+      name: demo
+      type: "CONFIGURATION"
+      purpose: [ "TESTS" ]
+    
+    # Основная конфигурация YAxUnit (движок)
+    - path: "yaxunit"
+      name: yaxunit
+      type: "EXTENSION"
+      purpose: [ "MAIN", "YAXUNIT" ]
+    
+    # Тесты YAxUnit
+    - path: "tests"
+      name: tests
+      type: "EXTENSION"
+      purpose: [ "TESTS", "YAXUNIT" ]
+
+  # Настройки подключения к информационной базе
+  connection:
+    connection-string: "File='/home/common/develop/file-data-base/YAxUnit/';"
+  
+  # Версия платформы из v8config.json
+  platform-version: "8.3.22.1709"
+  
+  # Настройки инструментов
+  tools:
+    # Тип сборщика: DESIGNER или IBCMD
+    builder: DESIGNER
+
+    # Настройки Enterprise (1С:Предприятие)
+    enterprise:
+      # Дополнительные ключи запуска
+      additional-launch-keys:
+        - "/TESTMANAGER"

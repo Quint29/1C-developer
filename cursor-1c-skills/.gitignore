@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+Thumbs.db
+
+# Артефакты прогона тестов скилов
+tests/skills/.cache/
+tests/skills/.last-report.json
+
+# Local agent instructions - not shipped
+CLAUDE.md

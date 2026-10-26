@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "references": {
+    "admin-tools.md": [
+      "delete-marked-public-boundary"
+    ],
+    "backup.md": [
+      "backup-public-boundary"
+    ],
+    "base-common.md": [
+      "message-bound-to-field"
+    ],
+    "bp-tasks.md": [
+      "bp-redirect-public-boundary"
+    ],
+    "classifiers.md": [
+      "classifiers-update-public-boundary"
+    ],
+    "commands-external.md": [
+      "connected-command-hook-boundary"
+    ],
+    "comms.md": [
+      "sms-public-wrapper-not-hook"
+    ],
+    "contact-info.md": [
+      "contact-info-representation-public-boundary"
+    ],
+    "currencies-banks.md": [
+      "currency-rates-client-public-boundary"
+    ],
+    "data-exchange.md": [
+      "exchange-register-changes"
+    ],
+    "esign-mcd.md": [
+      "mcd-check-public-boundary"
+    ],
+    "external-components.md": [
+      "external-component-server-public-boundary"
+    ],
+    "files-and-versions.md": [
+      "save-attached-file-public-boundary"
+    ],
+    "forms-validation.md": [
+      "lock-form-fields"
+    ],
+    "fundamentals.md": [
+      "fundamentals-module-and-api-boundaries"
+    ],
+    "longs-and-jobs.md": [
+      "long-operation-with-result",
+      "scheduled-job-module-suffix",
+      "nonexistent-service-module"
+    ],
+    "multilang.md": [
+      "multilang-hook"
+    ],
+    "perf-monitoring.md": [
+      "business-statistics-public-boundary"
+    ],
+    "prefixes.md": [
+      "prefix-hook-not-call"
+    ],
+    "print-reports.md": [
+      "print-object-registration"
+    ],
+    "protection-pd.md": [
+      "pd-destruction-date-public-boundary"
+    ],
+    "report-dedup.md": [
+      "dedup-replace-links-public-boundary"
+    ],
+    "update.md": [
+      "update-safe-write-module-name"
+    ],
+    "users-access.md": [
+      "set-user-access"
+    ]
+  },
+  "unscoped_cases": [
+    "plain-bsl-no-bsp"
+  ]
+}

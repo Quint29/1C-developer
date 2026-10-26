@@ -1,0 +1,72 @@
+---
+title: Поддержка
+hide:
+  - navigation
+  - toc
+  - feedback
+---
+
+# Поддержка
+
+### Нашли ошибку?
+
+[Пожаловаться или предложить идею](https://github.com/zeegin/v8std/issues/new){ .md-button }
+
+### Хотите внести исправление?
+
+Можно просто нажать на иконку :material-file-edit-outline: `Редактировать` и прислать Pull Request.
+
+Основной конфиг проекта: [`zensical.toml`](https://github.com/zeegin/v8std/blob/main/zensical.toml).
+
+### Как развернуть локально?
+
+Для разработки сайта требуется `Python 3.12`. Zensical устанавливается из PyPI в зафиксированной версии.
+
+=== ":fontawesome-brands-apple: mac"
+    ```bash
+    git clone https://github.com/zeegin/v8std.git
+    cd v8std
+
+    python3.12 -m venv .venv
+    source .venv/bin/activate
+
+    ./scripts/install_zensical.sh
+    ./scripts/zensical_docs.sh serve
+    ```
+
+=== ":fontawesome-brands-windows: windows"
+
+    ```bash
+    git clone https://github.com/zeegin/v8std.git
+    cd v8std
+
+    python3.12 -m venv .venv
+    source .venv/bin/activate
+
+    ./scripts/install_zensical.sh
+    ./scripts/zensical_docs.sh serve
+    ```
+
+    Рекомендуется `WSL 2`: установочные и служебные скрипты репозитория написаны на Bash.
+
+=== ":fontawesome-brands-linux: linux"
+    ```bash
+    git clone https://github.com/zeegin/v8std.git
+    cd v8std
+
+    python3.12 -m venv .venv
+    source .venv/bin/activate
+
+    ./scripts/install_zensical.sh
+    ./scripts/zensical_docs.sh serve
+    ```
+
+Скрипт [`./scripts/install_zensical.sh`](https://github.com/zeegin/v8std/blob/main/scripts/install_zensical.sh) устанавливает зафиксированную версию Zensical из PyPI и Python-зависимости проекта из [`requirements.txt`](https://github.com/zeegin/v8std/blob/main/requirements.txt).
+
+Скрипт [`./scripts/zensical_docs.sh`](https://github.com/zeegin/v8std/blob/main/scripts/zensical_docs.sh) перед `serve` и `build` обновляет временные social cards и AI-артефакты. Пример production-сборки:
+
+```bash
+./scripts/zensical_docs.sh build --strict
+```
+
+Сайт будет доступен по адресу `http://127.0.0.1:8000`.

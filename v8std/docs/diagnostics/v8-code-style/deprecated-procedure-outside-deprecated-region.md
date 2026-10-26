@@ -1,0 +1,73 @@
+###### v8cs:deprecated-procedure-outside-deprecated-region
+
+# Устаревшая процедура (функция) расположена вне области "УстаревшиеПроцедурыИФункции" (deprecated-procedure-outside-deprecated-region)
+
+- Категория: `bsl`
+
+<!-- diagnostic-source:start
+source_url=https://github.com/1C-Company/v8-code-style/blob/c8fe7932babf718c0ace3cf836a99d6a3b98d098/bundles/com.e1c.v8codestyle.bsl/markdown/ru/deprecated-procedure-outside-deprecated-region.md
+source_path=bundles/com.e1c.v8codestyle.bsl/markdown/ru/deprecated-procedure-outside-deprecated-region.md
+revision=c8fe7932babf718c0ace3cf836a99d6a3b98d098
+SPDX-License-Identifier: EPL-2.0
+sha256=48d9b83f5a31c217ebbd0b07ad9c873f9017aa69bc62bba8039033a946d50e11
+-->
+
+Устаревшую **экспортную** процедуру (функцию) следует перенести в область общего модуля **УстаревшиеПроцедурыИФункции**,
+которая размещена внутри области **ПрограммныйИнтерфейс**.
+В процедурах и функциях, размещенных в области **УстаревшиеПроцедурыИФункции**,
+допустимы отклонения от других стандартов разработки согласно п.1.1.
+В этом случае существующий прикладной код не потребуется переписывать.
+При этом если при выпуске новой редакции библиотеки будет принято решение удалить все устаревшие функции,
+то такие функции могут быть легко выявлены в коде библиотеки и удалены.
+
+## Неправильно
+
+```bsl
+#Область ПрограммныйИнтерфейс
+
+// Устарела. Следует использовать процедуру ПоддерживаемаяПроцедура
+Процедура УстаревшаяПроцедура() Экспорт
+
+    УстаревшаяПроцедура()
+
+КонецПроцедуры
+
+#КонецОбласти
+```
+
+## Правильно
+
+```bsl
+#Область ПрограммныйИнтерфейс
+
+#Область УстаревшиеПроцедурыИФункции
+
+// Устарела. Следует использовать процедуру ПоддерживаемаяПроцедура
+Процедура УстаревшаяПроцедура() Экспорт
+
+    УстаревшаяПроцедура()
+
+КонецПроцедуры
+
+#КонецОбласти
+
+#КонецОбласти
+```
+
+## См.
+
+[Обеспечение совместимости библиотек](https://its.1c.ru/db/v8std#content:644:hdoc:3.1@49fb4d81)
+
+<!-- diagnostic-source:end -->
+
+<!-- diagnostic-standards:start -->
+## Соответствие стандартам
+
+- [#std644, п. 3.1: Обеспечение совместимости библиотек](../../std/644.md#31) — Диагностика v8cs:deprecated-procedure-outside-deprecated-region проверяет требование пункта 3.1 стандарта std644.
+<!-- diagnostic-standards:end -->
+
+## Источник диагностики
+
+- [Исходная статья](https://github.com/1C-Company/v8-code-style/blob/c8fe7932babf718c0ace3cf836a99d6a3b98d098/bundles/com.e1c.v8codestyle.bsl/markdown/ru/deprecated-procedure-outside-deprecated-region.md)
+- Ревизия: `c8fe7932babf718c0ace3cf836a99d6a3b98d098`
+- Лицензия: `EPL-2.0`

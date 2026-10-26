@@ -1,0 +1,3 @@
+[submodule "vendor/agents-best-practices"]
+	path = vendor/agents-best-practices
+	url = https://github.com/DenisSergeevitch/agents-best-practices.git

@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+
+# Temp
+*.tmp
+*.bak
+.tmp/
+
+src/
+.claude/skills/prompt-crafting-guide/
+bsp321_md/
+bsp3111_md/
+.claude/skills/opencode-runner/

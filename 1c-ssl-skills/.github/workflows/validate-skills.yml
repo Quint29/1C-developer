@@ -1,0 +1,130 @@
+name: Validate BSP skills
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'skills/**'
+      - 'evals/**'
+      - 'install.sh'
+      - 'install.ps1'
+      - 'ci/**'
+      - 'tests/**'
+      - 'CLAUDE.md'
+      - '.gitmodules'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/validate-skills.yml'
+      - '.gitattributes'
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'evals/**'
+      - 'install.sh'
+      - 'install.ps1'
+      - 'ci/**'
+      - 'tests/**'
+      - 'CLAUDE.md'
+      - '.gitmodules'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/validate-skills.yml'
+      - '.gitattributes'
+  workflow_call:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate submodule mappings
+        run: git submodule status
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate skill scripts compile
+        run: |
+          python -m py_compile skills/bsp/scripts/bsp_api.py
+          python -m py_compile ci/validate_key_methods.py
+          python -m py_compile ci/run_skill_evals.py
+          python -m py_compile ci/build_release.py
+
+      - name: Run parser and validator tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Enforce API claim coverage
+        run: python ci/validate_key_methods.py --coverage-only
+
+      - name: Validate behavioral eval corpus and harness
+        run: >-
+          python ci/run_skill_evals.py --dry-run --cdx python
+          --dir . --bsl-src tests/fixtures/cf
+
+      - name: Validate skill scripts run (--src required)
+        run: |
+          # Script must fail with exit 2 when --src is missing
+          set +e
+          python skills/bsp/scripts/bsp_api.py method СообщитьПользователю
+          rc=$?
+          if [ "$rc" -ne 2 ]; then
+            echo "FAIL: expected exit 2 for missing --src, got $rc"
+            exit 1
+          fi
+          echo "OK: --src is required"
+
+      - name: Check UTF-8 stdout reconfigure
+        run: |
+          # Verify the script forces UTF-8 output (no mojibake on any platform)
+          python -c "
+          import importlib.util
+          path = 'skills/bsp/scripts/bsp_api.py'
+          spec = importlib.util.spec_from_file_location('m', path)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          # If we got here without error, the UTF-8 reconfigure block ran
+          print(f'OK: {path}')
+          "
+
+      - name: Build canonical archive fixture
+        run: >-
+          python ci/build_release.py --ref HEAD --version v0.0-ci
+          --output-dir "$RUNNER_TEMP/bsp-candidate"
+
+      - name: Smoke test packaged Bash installer
+        run: |
+          SOURCE="$RUNNER_TEMP/bsp-candidate/extracted"
+          bash -n "$SOURCE/install.sh"
+          bash "$SOURCE/install.sh" --source "$SOURCE" --target "$RUNNER_TEMP/bash skills"
+          diff -qr "$SOURCE/skills/bsp" "$RUNNER_TEMP/bash skills/bsp"
+          bash "$SOURCE/install.sh" --source "$SOURCE" --target "$RUNNER_TEMP/bash skills"
+          diff -qr "$SOURCE/skills/bsp" "$RUNNER_TEMP/bash skills/bsp"
+
+      - name: Smoke test packaged PowerShell installer
+        shell: pwsh
+        run: |
+          $source = "$env:RUNNER_TEMP/bsp-candidate/extracted"
+          $target = "$env:RUNNER_TEMP/pwsh skills"
+          & "$source/install.ps1" -SourceDirectory $source -Target $target
+          & "$source/install.ps1" -SourceDirectory $source -Target $target
+          $sourceRoot = (Resolve-Path "$source/skills/bsp").Path
+          $installedRoot = (Resolve-Path "$target/bsp").Path
+          $sourceFiles = Get-ChildItem $sourceRoot -Recurse -File | ForEach-Object {
+            "$($_.FullName.Substring($sourceRoot.Length))=$((Get-FileHash $_.FullName).Hash)"
+          } | Sort-Object
+          $installedFiles = Get-ChildItem $installedRoot -Recurse -File | ForEach-Object {
+            "$($_.FullName.Substring($installedRoot.Length))=$((Get-FileHash $_.FullName).Hash)"
+          } | Sort-Object
+          if (Compare-Object $sourceFiles $installedFiles) {
+            throw "PowerShell installer output differs from skills/bsp"
+          }
+
+      # NOTE: Semantic validation requires the BSP configuration export
+      # (src/cf/), which is in .gitignore and not available in CI. Extraction
+      # coverage and parser semantics are checked above with synthetic BSL
+      # fixtures; the full validation runs locally before commit.
+      #
+      # - name: Validate API claims against BSP source
+      #   run: python ci/validate_key_methods.py --src src/cf

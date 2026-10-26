@@ -1,0 +1,20 @@
+# Локальная визитка — не часть поставки коллегам
+/site/
+
+# Личные заметки
+MyPromt.md
+*.local.md
+.env
+.env.*
+
+# Служебное
+.DS_Store
+Thumbs.db
+*.log
+.teacher-reports/
+
+# Кэш / сборки внутри вендоров (если появятся)
+**/node_modules/
+**/.venv/
+**/target/
+**/build/
